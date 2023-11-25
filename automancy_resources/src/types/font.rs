@@ -2,7 +2,7 @@ use crate::{LoadResourceError, ResourceManager, COULD_NOT_GET_FILE_STEM, FONT_EX
 use automancy_defs::flexstr::ToSharedStr;
 use automancy_defs::log;
 use std::ffi::OsStr;
-use std::fs::{read_dir, read_to_string, File};
+use std::fs::{read_dir, File};
 use std::io::Read;
 use std::path::Path;
 use ttf_parser::{name_id, Face};
@@ -15,25 +15,28 @@ impl ResourceManager {
     pub fn load_fonts(&mut self, dir: &Path) -> anyhow::Result<()> {
         let fonts = dir.join("fonts");
         if let Ok(fonts) = read_dir(fonts) {
-            for file in fonts
+            let mut fonts = fonts
                 .into_iter()
                 .flatten()
                 .map(|v| v.path())
-                .filter(|v| v.extension() == Some(OsStr::new(FONT_EXT)))
-            {
+                .filter(|v| {
+                    v.extension().is_some()
+                        && FONT_EXT.contains(&v.extension().unwrap().to_str().unwrap())
+                })
+                .collect::<Vec<_>>();
+            for file in fonts {
                 log::info!("loading font {file:?}");
                 let mut data: Vec<u8> = Vec::new();
                 File::open(&file)?.read_to_end(&mut data)?;
-                let parsed = Face::parse(data.as_slice(), 0)?;
                 let file_stem = file.file_stem().unwrap().to_str().unwrap().to_string();
-                let name = parsed
+                let name = Face::parse(data.as_slice(), 0)?
                     .tables()
                     .name
-                    .expect("Failed to get name table from font")
+                    .expect("Failed to get name table (likely malformed font file)")
                     .names
-                    .get(name_id::TYPOGRAPHIC_FAMILY)
-                    .expect("Failed to get font family name")
-                    .to_string()
+                    .into_iter()
+                    .filter_map(|n| n.to_string())
+                    .find(|n| n.to_lowercase()[..2] == file_stem.to_lowercase()[..2])
                     .unwrap_or(file_stem);
                 self.fonts.insert(
                     file.file_name()
