@@ -8,7 +8,7 @@ use egui::Rect;
 use fuse_rust::Fuse;
 use futures::channel::mpsc;
 use futures::executor::block_on;
-use wgpu::SurfaceError;
+use egui_wgpu::wgpu::SurfaceError;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::ControlFlow;
 
@@ -375,7 +375,7 @@ pub fn on_event(
         }
 
         Event::WindowEvent { event, .. } => {
-            if !gui.state.on_event(&gui.context, event).consumed {
+            if !gui.state.on_window_event(&gui.context, event).consumed {
                 window_event = Some(event);
             }
 
@@ -615,7 +615,7 @@ pub fn on_event(
         }
     }
     if !setup.options.synced {
-        gui.context.set_pixels_per_point(setup.options.gui.scale);
+        gui.context.set_zoom_factor(setup.options.gui.scale);
         set_font(setup.options.gui.font.to_shared_str(), gui);
         setup
             .audio_man
