@@ -11,7 +11,6 @@ use futures::channel::mpsc;
 use futures::executor::block_on;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
-use winit::window::Fullscreen;
 
 use automancy::game::{GameMsg, PlaceTileResponse};
 use automancy::input;
@@ -119,6 +118,8 @@ fn render(
     gui: &mut Gui,
     target: &EventLoopWindowTarget<()>,
 ) -> anyhow::Result<bool> {
+    let mut result = Ok(false);
+
     setup.camera.update_pointing_at(
         setup.input_handler.main_pos,
         window::window_size_double(&renderer.gpu.window),
@@ -128,8 +129,6 @@ fn render(
         window::window_size_double(&renderer.gpu.window),
         loop_store.elapsed.as_secs_f64(),
     );
-
-    let mut result = Ok(false);
 
     let mut tile_tints = HashMap::new();
 
@@ -343,8 +342,6 @@ fn render(
                 }
                 Err(e) => log::error!("{e:?}"),
             }
-
-            loop_store.elapsed = Instant::now().duration_since(loop_store.frame_start);
         }
     }
 
@@ -381,6 +378,7 @@ pub fn on_event(
             match event {
                 WindowEvent::RedrawRequested => {
                     renderer.gpu.window.pre_present_notify();
+
                     return render(setup, loop_store, renderer, gui, target);
                 }
                 WindowEvent::Resized(size) => {
@@ -394,11 +392,6 @@ pub fn on_event(
 
         Event::DeviceEvent { event, .. } => {
             device_event = Some(event);
-        }
-
-        Event::AboutToWait => {
-            renderer.gpu.window.request_redraw();
-            return Ok(false);
         }
 
         _ => {}

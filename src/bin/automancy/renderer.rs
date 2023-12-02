@@ -23,12 +23,13 @@ use automancy::game::{GameMsg, RenderUnit, TransactionRecord, TRANSACTION_ANIMAT
 use automancy::gpu;
 use automancy::gpu::{Gpu, NORMAL_CLEAR, SCREENSHOT_FORMAT};
 use automancy::input::KeyActions;
+use automancy::options::Options;
 use automancy_defs::cgmath::{point3, vec3, EuclideanSpace};
 use automancy_defs::coord::TileCoord;
 use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
-use automancy_defs::math::{deg, direction_to_angle, Float, Matrix4, FAR};
+use automancy_defs::math::{deg, direction_to_angle, Double, Float, Matrix4, FAR};
 use automancy_defs::rendering::{
     lerp_coords_to_pixel, make_line, GameUBO, InstanceData, PostEffectsUBO,
 };
@@ -39,11 +40,15 @@ use crate::setup::GameSetup;
 
 pub struct Renderer {
     pub gpu: Gpu,
+    pub fps_limit: Double,
 }
 
 impl Renderer {
-    pub fn new(gpu: Gpu) -> Self {
-        Self { gpu }
+    pub fn new(gpu: Gpu, options: &Options) -> Self {
+        Self {
+            gpu,
+            fps_limit: options.graphics.fps_limit,
+        }
     }
 }
 
