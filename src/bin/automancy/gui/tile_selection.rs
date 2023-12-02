@@ -1,5 +1,5 @@
 use egui::scroll_area::ScrollBarVisibility;
-use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel, Ui, Vec2};
+use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel, Ui};
 use futures::channel::mpsc;
 
 use automancy::tile_entity::TileModifier;
@@ -92,10 +92,7 @@ fn draw_tile_selection(
                     .with_model_matrix(matrix)
                     .with_light_pos(point3(0.0, 1.5, 10.0)),
                 model,
-                (
-                    Some(rect),
-                    Some(ui.clip_rect().shrink2(Vec2::new(2.0, 0.0))),
-                ),
+                (Some(rect), Some(ui.clip_rect())),
             ));
         });
 }
