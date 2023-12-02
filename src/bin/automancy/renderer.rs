@@ -5,18 +5,19 @@ use std::time::Instant;
 use arboard::{Clipboard, ImageData};
 use egui::{Rect, Rgba};
 use egui_wgpu::renderer::ScreenDescriptor;
-use futures::executor::block_on;
-use image::{EncodableLayout, RgbaImage};
-use num::PrimInt;
-use tokio::sync::oneshot;
 use egui_wgpu::wgpu::{
     BindGroupDescriptor, BindGroupEntry, BindingResource, BufferAddress, BufferDescriptor,
     BufferUsages, Color, CommandEncoderDescriptor, ImageCopyBuffer, ImageDataLayout, IndexFormat,
     LoadOp, Maintain, MapMode, Operations, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, RenderPassDescriptor, SurfaceError, TextureDescriptor,
-    TextureDimension, TextureUsages, TextureViewDescriptor, COPY_BUFFER_ALIGNMENT,
-    COPY_BYTES_PER_ROW_ALIGNMENT, StoreOp::Store, StoreOp::Discard,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp::Discard, StoreOp::Store,
+    SurfaceError, TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor,
+    COPY_BUFFER_ALIGNMENT, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
+use futures::executor::block_on;
+use image::{EncodableLayout, RgbaImage};
+use num::PrimInt;
+use tokio::sync::oneshot;
+use winit::dpi::PhysicalSize;
 
 use automancy::game::{GameMsg, RenderUnit, TransactionRecord, TRANSACTION_ANIMATION_SPEED};
 use automancy::gpu;
@@ -44,6 +45,10 @@ impl Renderer {
     pub fn new(gpu: Gpu) -> Self {
         Self { gpu }
     }
+}
+
+fn check_range(rect: Rect, size: PhysicalSize<u32>) -> bool {
+    !(rect.max.x > size.width as f32 || rect.max.y > size.height as f32)
 }
 
 fn get_angle_from_direction(target: &Data) -> Option<Float> {
@@ -286,7 +291,9 @@ impl Renderer {
             gpu::indirect_instance(&setup.resource_man, in_world_item_instances, true);
 
         let egui_out = gui.context.end_frame();
-        let egui_primitives = gui.context.tessellate(egui_out.shapes, gui.context.pixels_per_point());
+        let egui_primitives = gui
+            .context
+            .tessellate(egui_out.shapes, gui.context.pixels_per_point());
         let egui_desc = ScreenDescriptor {
             size_in_pixels: [size.width, size.height],
             pixels_per_point: factor,
@@ -685,6 +692,10 @@ impl Renderer {
 
                 for (draw, (viewport, scissor)) in gui_draws.values().flatten() {
                     if let Some(viewport) = viewport {
+                        if !check_range(*viewport, size) {
+                            continue;
+                        }
+
                         gui_pass.set_viewport(
                             viewport.left() * factor as Float,
                             viewport.top() * factor as Float,
@@ -705,6 +716,10 @@ impl Renderer {
                     }
 
                     if let Some(scissor) = scissor {
+                        if !check_range(*scissor, size) {
+                            continue;
+                        }
+
                         gui_pass.set_scissor_rect(
                             (scissor.left() * factor) as u32,
                             (scissor.top() * factor) as u32,
@@ -906,6 +921,10 @@ impl Renderer {
 
                 for (draw, (viewport, scissor)) in item_draws.values().flatten() {
                     if let Some(viewport) = viewport {
+                        if !check_range(*viewport, size) {
+                            continue;
+                        }
+
                         item_pass.set_viewport(
                             viewport.left() * factor as Float,
                             viewport.top() * factor as Float,
@@ -926,6 +945,10 @@ impl Renderer {
                     }
 
                     if let Some(scissor) = scissor {
+                        if !check_range(*scissor, size) {
+                            continue;
+                        }
+
                         item_pass.set_scissor_rect(
                             (scissor.left() * factor) as u32,
                             (scissor.top() * factor) as u32,
