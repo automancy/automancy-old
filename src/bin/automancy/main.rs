@@ -2,6 +2,7 @@ use std::fmt::Write;
 use std::fs::File;
 use std::panic::PanicInfo;
 use std::path::Path;
+use std::time::{Duration, Instant};
 use std::{env, panic};
 
 use color_eyre::config::HookBuilder;
@@ -10,10 +11,11 @@ use color_eyre::owo_colors::OwoColorize;
 use env_logger::Env;
 use futures::executor::block_on;
 use native_dialog::{MessageDialog, MessageType};
+use num::Zero;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 use winit::dpi::PhysicalSize;
-use winit::event_loop::EventLoop;
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, WindowBuilder};
 
 use automancy::camera::Camera;
@@ -21,6 +23,7 @@ use automancy::gpu::Gpu;
 use automancy_defs::flexstr::ToSharedStr;
 use automancy_defs::gui::init_gui;
 use automancy_defs::gui::set_font;
+use automancy_defs::math::Double;
 use automancy_defs::{log, window};
 use automancy_resources::kira::tween::Tween;
 
@@ -171,9 +174,9 @@ fn main() -> eyre::Result<()> {
     set_font(setup.options.gui.font.to_shared_str(), &mut gui);
     log::info!("Gui set up.");
 
-    let mut renderer = Renderer::new(gpu);
+    let mut renderer = Renderer::new(gpu, &setup.options);
 
-    let mut storage = EventLoopStorage::default();
+    let mut loop_store = EventLoopStorage::default();
 
     let mut closed = false;
 
@@ -184,7 +187,7 @@ fn main() -> eyre::Result<()> {
 
         match on_event(
             &mut setup,
-            &mut storage,
+            &mut loop_store,
             &mut renderer,
             &mut gui,
             event,
@@ -193,6 +196,7 @@ fn main() -> eyre::Result<()> {
             Ok(to_exit) => {
                 if to_exit {
                     closed = true;
+                    return;
                 }
             }
             Err(e) => {
@@ -214,6 +218,12 @@ fn main() -> eyre::Result<()> {
                 .gpu
                 .set_vsync(setup.options.graphics.fps_limit == 0.0);
 
+            if setup.options.graphics.fps_limit >= 250.0 {
+                renderer.fps_limit = Double::INFINITY;
+            } else {
+                renderer.fps_limit = setup.options.graphics.fps_limit;
+            }
+
             if setup.options.graphics.fullscreen {
                 renderer
                     .gpu
@@ -225,6 +235,20 @@ fn main() -> eyre::Result<()> {
 
             setup.options.synced = true;
         }
+
+        if !renderer.fps_limit.is_zero() {
+            let frame_time = Duration::from_secs_f64(1.0 / renderer.fps_limit);
+
+            if loop_store.frame_start.elapsed() > frame_time {
+                renderer.gpu.window.request_redraw();
+                target.set_control_flow(ControlFlow::WaitUntil(Instant::now() + frame_time));
+            }
+        } else {
+            renderer.gpu.window.request_redraw();
+            target.set_control_flow(ControlFlow::Poll);
+        }
+
+        loop_store.elapsed = Instant::now().duration_since(loop_store.frame_start);
     })?;
 
     Ok(())
