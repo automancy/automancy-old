@@ -1,10 +1,10 @@
 use std::fs::{File, OpenOptions};
-use std::io::{BufReader, Read, Write};
+use std::io::{BufReader, Write};
 
 use enum_ordinalize::Ordinalize;
+use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
-
-use winit::event::VirtualKeyCode;
+use winit::keyboard::Key;
 
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::log;
@@ -12,12 +12,12 @@ use automancy_defs::math::{Double, Float};
 
 use crate::input::{KeyAction, DEFAULT_KEYMAP};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Options {
     pub graphics: GraphicsOptions,
     pub audio: AudioOptions,
     pub gui: GuiOptions,
-    pub keymap: HashMap<VirtualKeyCode, KeyAction>,
+    pub keymap: HashMap<Key, KeyAction>,
     pub synced: bool,
 }
 
@@ -33,7 +33,7 @@ impl Default for Options {
     }
 }
 
-static OPTIONS_PATH: &str = "options.toml";
+static OPTIONS_PATH: &str = "options.ron";
 
 impl Options {
     pub fn load() -> anyhow::Result<Options> {
@@ -44,10 +44,10 @@ impl Options {
             .read(true)
             .create(true)
             .open(OPTIONS_PATH)?;
-        let mut body = String::new();
 
-        BufReader::new(file).read_to_string(&mut body)?;
-        let mut this: Options = toml::de::from_str(body.clone().as_str()).unwrap_or_default();
+        let reader = BufReader::new(file);
+
+        let mut this: Options = ron::de::from_reader(reader).unwrap_or_default();
 
         if this.keymap.len() != DEFAULT_KEYMAP.len() {
             // TODO show a popup warning the player
@@ -62,7 +62,12 @@ impl Options {
     pub fn save(&mut self) -> anyhow::Result<()> {
         let mut file = File::create(OPTIONS_PATH)?;
 
-        let document = toml::ser::to_string_pretty(&self)?;
+        log::info!("Serializing options...");
+        log::debug!("{:?}", &self);
+
+        let document = ron::ser::to_string_pretty(&self, PrettyConfig::default())?;
+
+        log::info!("Saving options...");
 
         write!(&mut file, "{document}")?;
 
@@ -79,7 +84,6 @@ pub enum AAType {
     None,
     FXAA,
     TAA,
-    Upscale,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -96,7 +100,7 @@ impl Default for GraphicsOptions {
             fps_limit: 0.0,
             fullscreen: false,
             scale: 1.0,
-            anti_aliasing: AAType::Upscale,
+            anti_aliasing: AAType::FXAA,
         }
     }
 }
@@ -115,7 +119,7 @@ impl Default for GuiOptions {
         }
     }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct AudioOptions {
     pub sfx_volume: f64,
     pub music_volume: f64,

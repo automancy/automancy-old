@@ -5,12 +5,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use egui::Rect;
+use egui_wgpu::wgpu::SurfaceError;
 use fuse_rust::Fuse;
 use futures::channel::mpsc;
 use futures::executor::block_on;
-use egui_wgpu::wgpu::SurfaceError;
 use winit::event::{Event, WindowEvent};
-use winit::event_loop::ControlFlow;
+use winit::event_loop::EventLoopWindowTarget;
+use winit::window::Fullscreen;
 
 use automancy::game::{GameMsg, PlaceTileResponse};
 use automancy::input;
@@ -19,8 +20,7 @@ use automancy::tile_entity::{TileEntityMsg, TileModifier};
 use automancy_defs::cgmath::{point2, vec3};
 use automancy_defs::colors::ColorAdj;
 use automancy_defs::coord::{ChunkCoord, TileCoord};
-use automancy_defs::flexstr::ToSharedStr;
-use automancy_defs::gui::{set_font, Gui};
+use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::{HashMap, HashSet};
 use automancy_defs::id::Id;
 use automancy_defs::math::{Float, Matrix4, FAR};
@@ -28,7 +28,6 @@ use automancy_defs::rendering::{make_line, InstanceData};
 use automancy_defs::{colors, log, math, window};
 use automancy_resources::data::item::Item;
 use automancy_resources::data::Data;
-use automancy_resources::kira::tween::Tween;
 
 use crate::gui::{
     error, info, menu, player, popup, tile_config, tile_selection, GuiState, PopupState, Screen,
@@ -92,7 +91,7 @@ impl EventLoopStorage {}
 
 pub fn shutdown_graceful(
     setup: &mut GameSetup,
-    control_flow: &mut ControlFlow,
+    target: &EventLoopWindowTarget<()>,
 ) -> anyhow::Result<bool> {
     setup.game.send_message(GameMsg::StopTicking)?;
 
@@ -106,7 +105,7 @@ pub fn shutdown_graceful(
 
     block_on(setup.game_handle.take().unwrap())?;
 
-    control_flow.set_exit();
+    target.exit();
 
     log::info!("Shut down gracefully");
 
@@ -118,7 +117,7 @@ fn render(
     loop_store: &mut EventLoopStorage,
     renderer: &mut Renderer,
     gui: &mut Gui,
-    control_flow: &mut ControlFlow,
+    target: &EventLoopWindowTarget<()>,
 ) -> anyhow::Result<bool> {
     setup.camera.update_pointing_at(
         setup.input_handler.main_pos,
@@ -264,7 +263,7 @@ fn render(
                     }
                 }
                 Screen::MainMenu => {
-                    result = menu::main_menu(setup, &gui.context, control_flow, loop_store)
+                    result = menu::main_menu(setup, &gui.context, target, loop_store)
                 }
                 Screen::MapLoad => {
                     menu::map_menu(setup, &gui.context, loop_store);
@@ -340,7 +339,7 @@ fn render(
                     .gpu
                     .create_textures(renderer.gpu.window.inner_size()),
                 Err(SurfaceError::OutOfMemory) => {
-                    return shutdown_graceful(setup, control_flow);
+                    return shutdown_graceful(setup, target);
                 }
                 Err(e) => log::error!("{e:?}"),
             }
@@ -359,7 +358,7 @@ pub fn on_event(
     renderer: &mut Renderer,
     gui: &mut Gui,
     event: Event<()>,
-    control_flow: &mut ControlFlow,
+    target: &EventLoopWindowTarget<()>,
 ) -> anyhow::Result<bool> {
     let mut window_event = None;
     let mut device_event = None;
@@ -371,22 +370,21 @@ pub fn on_event(
             ..
         } => {
             // game shutdown
-            return shutdown_graceful(setup, control_flow);
+            return shutdown_graceful(setup, target);
         }
 
-        Event::WindowEvent { event, .. } => {
+        Event::WindowEvent { event, window_id } if window_id == &renderer.gpu.window.id() => {
             if !gui.state.on_window_event(&gui.context, event).consumed {
                 window_event = Some(event);
             }
 
             match event {
+                WindowEvent::RedrawRequested => {
+                    renderer.gpu.window.pre_present_notify();
+                    return render(setup, loop_store, renderer, gui, target);
+                }
                 WindowEvent::Resized(size) => {
                     renderer.gpu.create_textures(*size);
-
-                    return Ok(false);
-                }
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    renderer.gpu.create_textures(**new_inner_size);
 
                     return Ok(false);
                 }
@@ -398,17 +396,13 @@ pub fn on_event(
             device_event = Some(event);
         }
 
-        Event::MainEventsCleared => {
+        Event::AboutToWait => {
             renderer.gpu.window.request_redraw();
             return Ok(false);
         }
 
         _ => {}
     };
-
-    if event == Event::RedrawRequested(renderer.gpu.window.id()) {
-        return render(setup, loop_store, renderer, gui, control_flow);
-    }
 
     if window_event.is_some() || device_event.is_some() {
         setup.input_handler.reset();
@@ -613,15 +607,12 @@ pub fn on_event(
         if setup.input_handler.control_held && setup.input_handler.key_active(KeyActions::Undo) {
             setup.game.send_message(GameMsg::Undo)?;
         }
+
+        if setup.input_handler.key_active(KeyActions::Fullscreen) {
+            setup.options.graphics.fullscreen = !setup.options.graphics.fullscreen;
+            setup.options.synced = false
+        }
     }
-    if !setup.options.synced {
-        gui.context.set_zoom_factor(setup.options.gui.scale);
-        set_font(setup.options.gui.font.to_shared_str(), gui);
-        setup
-            .audio_man
-            .main_track()
-            .set_volume(setup.options.audio.sfx_volume, Tween::default())?;
-        setup.options.synced = true;
-    }
+
     Ok(false)
 }

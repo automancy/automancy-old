@@ -18,11 +18,11 @@ use winit::window::{Fullscreen, Icon, WindowBuilder};
 
 use automancy::camera::Camera;
 use automancy::gpu::Gpu;
-use automancy::input::KeyActions;
 use automancy_defs::flexstr::ToSharedStr;
 use automancy_defs::gui::init_gui;
 use automancy_defs::gui::set_font;
 use automancy_defs::{log, window};
+use automancy_resources::kira::tween::Tween;
 
 use crate::event::{on_event, EventLoopStorage};
 use crate::gui::init_fonts;
@@ -132,14 +132,14 @@ fn main() -> eyre::Result<()> {
     }
 
     // --- window ---
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new()?;
 
     let window = WindowBuilder::new()
         .with_title("automancy")
         .with_window_icon(Some(get_icon()))
         .with_min_inner_size(PhysicalSize::new(200, 200))
         .build(&event_loop)
-        .expect("failed to open window!");
+        .expect("Failed to open window");
 
     let camera = Camera::new(window::window_size_double(&window));
 
@@ -148,7 +148,7 @@ fn main() -> eyre::Result<()> {
 
     let (mut setup, vertices, indices) = runtime
         .block_on(GameSetup::setup(camera))
-        .expect("Critical failure in game setup!");
+        .expect("Critical failure in game setup");
 
     // --- render ---
     log::info!("Setting up rendering...");
@@ -177,7 +177,7 @@ fn main() -> eyre::Result<()> {
 
     let mut closed = false;
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run(move |event, target| {
         if closed {
             return;
         }
@@ -188,7 +188,7 @@ fn main() -> eyre::Result<()> {
             &mut renderer,
             &mut gui,
             event,
-            control_flow,
+            target,
         ) {
             Ok(to_exit) => {
                 if to_exit {
@@ -200,18 +200,32 @@ fn main() -> eyre::Result<()> {
             }
         }
 
-        renderer
-            .gpu
-            .set_vsync(setup.options.graphics.fps_limit == 0.0);
+        if !setup.options.synced {
+            gui.context.set_zoom_factor(setup.options.gui.scale);
+            set_font(setup.options.gui.font.to_shared_str(), &mut gui);
 
-        setup.options.graphics.fullscreen = setup.input_handler.key_active(KeyActions::Fullscreen);
-        if setup.options.graphics.fullscreen {
+            setup
+                .audio_man
+                .main_track()
+                .set_volume(setup.options.audio.sfx_volume, Tween::default())
+                .unwrap();
+
             renderer
                 .gpu
-                .window
-                .set_fullscreen(Some(Fullscreen::Borderless(None)));
-        } else {
-            renderer.gpu.window.set_fullscreen(None);
+                .set_vsync(setup.options.graphics.fps_limit == 0.0);
+
+            if setup.options.graphics.fullscreen {
+                renderer
+                    .gpu
+                    .window
+                    .set_fullscreen(Some(Fullscreen::Borderless(None)));
+            } else {
+                renderer.gpu.window.set_fullscreen(None);
+            }
+
+            setup.options.synced = true;
         }
-    });
+    })?;
+
+    Ok(())
 }
