@@ -7,7 +7,7 @@
 __pycache__
 
 map
-options.toml
+options.ron
 
 *.gltf
 *.glb

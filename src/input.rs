@@ -3,9 +3,9 @@ use std::mem;
 use serde::{Deserialize, Serialize};
 use winit::event::ElementState::{Pressed, Released};
 use winit::event::{
-    DeviceEvent, ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta,
-    VirtualKeyCode, WindowEvent,
+    DeviceEvent, ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta, WindowEvent,
 };
+use winit::keyboard::{Key, NamedKey, SmolStr};
 
 use automancy_defs::cgmath::{point2, vec2};
 use automancy_defs::hashbrown::{HashMap, HashSet};
@@ -13,14 +13,14 @@ use automancy_defs::math::{DPoint2, DVector2, Double};
 
 use crate::options::Options;
 
-pub static DEFAULT_KEYMAP: &[(VirtualKeyCode, KeyAction)] = &[
-    (VirtualKeyCode::Z, actions::UNDO),
-    (VirtualKeyCode::Escape, actions::ESCAPE),
-    (VirtualKeyCode::F3, actions::DEBUG),
-    (VirtualKeyCode::F11, actions::FULLSCREEN),
-    (VirtualKeyCode::F1, actions::HIDE_GUI),
-    (VirtualKeyCode::F2, actions::SCREENSHOT),
-    (VirtualKeyCode::E, actions::PLAYER),
+pub static DEFAULT_KEYMAP: &[(Key, KeyAction)] = &[
+    (Key::Character(SmolStr::new_inline("z")), actions::UNDO),
+    (Key::Character(SmolStr::new_inline("e")), actions::PLAYER),
+    (Key::Named(NamedKey::Escape), actions::ESCAPE),
+    (Key::Named(NamedKey::F1), actions::HIDE_GUI),
+    (Key::Named(NamedKey::F2), actions::SCREENSHOT),
+    (Key::Named(NamedKey::F3), actions::DEBUG),
+    (Key::Named(NamedKey::F11), actions::FULLSCREEN),
 ];
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -64,7 +64,7 @@ pub mod actions {
     };
     pub static FULLSCREEN: KeyAction = KeyAction {
         action: KeyActions::Fullscreen,
-        press_type: PressTypes::Toggle,
+        press_type: PressTypes::Tap,
     };
     pub static SCREENSHOT: KeyAction = KeyAction {
         action: KeyActions::Screenshot,
@@ -81,7 +81,7 @@ pub mod actions {
 }
 
 /// The various controls of the game.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum GameInputEvent {
     None,
     MainPos { pos: DPoint2 },
@@ -95,8 +95,8 @@ pub enum GameInputEvent {
     TertiaryReleased,
     ExitPressed,
     ExitReleased,
-    ModifierChanged { modifier: ModifiersState },
-    KeyboardEvent { input: KeyboardInput },
+    ModifierChanged { modifier: Modifiers },
+    KeyboardEvent { event: KeyEvent },
 }
 
 pub fn convert_input(
@@ -164,7 +164,11 @@ pub fn convert_input(
 
                 result = MainPos { pos };
             }
-            WindowEvent::KeyboardInput { input, .. } => result = KeyboardEvent { input: *input },
+            WindowEvent::KeyboardInput { event, .. } => {
+                result = KeyboardEvent {
+                    event: event.clone(),
+                }
+            }
             _ => {}
         }
     }
@@ -199,7 +203,7 @@ pub struct InputHandler {
     pub alternate_pressed: bool,
     pub tertiary_pressed: bool,
 
-    pub key_map: HashMap<VirtualKeyCode, KeyAction>,
+    pub key_map: HashMap<Key, KeyAction>,
     pub key_states: HashSet<KeyActions>,
 
     to_clear: Vec<KeyAction>,
@@ -279,28 +283,25 @@ impl InputHandler {
                 self.shift_held = false;
                 self.control_held = false;
 
-                if modifier.contains(ModifiersState::SHIFT) {
+                if modifier.state().shift_key() {
                     self.shift_held = true;
                 }
-                if modifier.contains(ModifiersState::CTRL) {
+                if modifier.state().control_key() {
                     self.control_held = true;
                 }
             }
             GameInputEvent::KeyboardEvent {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(virtual_keycode),
-                        ..
-                    },
+                event: KeyEvent {
+                    state, logical_key, ..
+                },
             } => {
-                self.handle_key(state, virtual_keycode);
+                self.handle_key(state, logical_key);
             }
             _ => {}
         }
     }
 
-    pub fn handle_key(&mut self, state: ElementState, key: VirtualKeyCode) -> Option<()> {
+    pub fn handle_key(&mut self, state: ElementState, key: Key) -> Option<()> {
         let action = *self.key_map.get(&key)?;
 
         match action.press_type {

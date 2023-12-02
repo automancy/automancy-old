@@ -89,7 +89,7 @@
         "automancy:lbl_link_destination": "(Right click to link Destination)",
     },
     error: {
-        "automancy:unwritable_options": "Could not write the options.toml file! Your changes will NOT be saved.",
+        "automancy:unwritable_options": "Could not write the options.ron file! Your changes will NOT be saved.",
         "automancy:invalid_map_data": "Map {} was corrupted and could not be repaired! This session will instead be written to {}",
     },
 )

@@ -5,7 +5,7 @@ use egui::{
     TextEdit, TextStyle, Window,
 };
 use futures::executor::block_on;
-use winit::event_loop::ControlFlow;
+use winit::event_loop::EventLoopWindowTarget;
 
 use automancy::game::GameMsg;
 use automancy::map::{Map, MAIN_MENU};
@@ -24,7 +24,7 @@ use crate::setup::GameSetup;
 pub fn main_menu(
     setup: &mut GameSetup,
     context: &Context,
-    control_flow: &mut ControlFlow,
+    target: &EventLoopWindowTarget<()>,
     loop_store: &mut EventLoopStorage,
 ) -> anyhow::Result<bool> {
     let mut result = Ok(false);
@@ -103,7 +103,7 @@ pub fn main_menu(
                         )
                         .clicked()
                     {
-                        result = shutdown_graceful(setup, control_flow);
+                        result = shutdown_graceful(setup, target);
                     };
                     ui.label(VERSION)
                 },
@@ -340,7 +340,7 @@ pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut Event
     });
 }
 
-/// Draws the options menu. Returns whether or not the font should be reset (janky but it probably works)
+/// Draws the options menu.
 pub fn options_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut EventLoopStorage) {
     Window::new(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.options].as_str(),
@@ -371,7 +371,7 @@ pub fn options_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut E
                     OptionsMenuState::Graphics => {
                         ui.vertical(|ui| {
                             ui.label(RichText::new("Graphics").text_style(TextStyle::Heading));
-                            ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
                                 ui.label(RichText::new("FPS Limit: "));
                                 ui.add(
                                     Slider::new(&mut setup.options.graphics.fps_limit, 0.0..=250.0)
@@ -420,11 +420,6 @@ pub fn options_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut E
                                             &mut setup.options.graphics.anti_aliasing,
                                             AAType::TAA,
                                             "TAA",
-                                        );
-                                        ui.selectable_value(
-                                            &mut setup.options.graphics.anti_aliasing,
-                                            AAType::Upscale,
-                                            "Upscale",
                                         );
                                     });
                             })
