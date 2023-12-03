@@ -1,7 +1,7 @@
 use std::fs;
 use std::sync::Arc;
 
-use egui::Frame;
+use egui::{Frame, TextureHandle};
 use ractor::concurrency::JoinHandle;
 use ractor::{Actor, ActorRef};
 
@@ -88,11 +88,16 @@ pub struct GameSetup {
     pub input_handler: InputHandler,
     /// the game options
     pub options: Options,
+    /// the game's logo, in egui texture
+    pub logo_image: TextureHandle,
 }
 
 impl GameSetup {
     /// Initializes the game, filling all the necessary fields as well as returns the loaded vertices and indices.
-    pub async fn setup(camera: Camera) -> anyhow::Result<(Self, Vec<Vertex>, Vec<u16>)> {
+    pub async fn setup(
+        camera: Camera,
+        logo_image: TextureHandle,
+    ) -> anyhow::Result<(Self, Vec<Vertex>, Vec<u16>)> {
         // --- resources & data ---
         log::info!("Initializing audio backend...");
         let mut audio_man = AudioManager::<CpalBackend>::new(AudioManagerSettings::default())?;
@@ -153,6 +158,7 @@ impl GameSetup {
                 maps: Vec::new(),
                 input_handler: InputHandler::new(&options),
                 options,
+                logo_image,
             },
             vertices,
             indices,

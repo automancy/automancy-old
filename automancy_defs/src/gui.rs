@@ -93,9 +93,7 @@ fn init_styles(gui: &Gui) {
 }
 
 /// Initializes the GUI.
-pub fn init_gui(renderer: egui_wgpu::Renderer, window: &Window) -> Gui {
-    let context: Context = Default::default();
-
+pub fn init_gui(context: Context, renderer: egui_wgpu::Renderer, window: &Window) -> Gui {
     egui_extras::install_image_loaders(&context);
     let gui = Gui {
         renderer,

@@ -8,6 +8,7 @@ use std::{env, panic};
 use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
+use egui::{ColorImage, TextureHandle, TextureOptions};
 use env_logger::Env;
 use futures::executor::block_on;
 use native_dialog::{MessageDialog, MessageType};
@@ -32,7 +33,8 @@ use crate::gui::init_fonts;
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
 
-pub static LOGO: &[u8] = include_bytes!("assets/logo.png");
+pub static LOGO_PATH: &str = "assets/logo_256.png";
+pub static LOGO: &[u8] = include_bytes!("assets/logo_256.png");
 
 mod event;
 mod gui;
@@ -40,12 +42,19 @@ pub mod renderer;
 mod setup;
 
 /// Gets the game icon.
-fn get_icon() -> Icon {
+fn get_icon_and_image(context: &egui::Context) -> (Icon, TextureHandle) {
     let image = image::load_from_memory(LOGO).unwrap().to_rgba8();
     let width = image.width();
     let height = image.height();
 
-    Icon::from_rgba(image.into_flat_samples().samples, width, height).unwrap() // unwrap ok
+    let samples = image.into_flat_samples().samples;
+    let texture = context.load_texture(
+        LOGO_PATH.to_string(),
+        ColorImage::from_rgba_premultiplied([width as usize, height as usize], &samples),
+        TextureOptions::LINEAR,
+    );
+
+    (Icon::from_rgba(samples, width, height).unwrap(), texture)
 }
 
 fn write_msg<P: AsRef<Path>>(buffer: &mut impl Write, file_path: P) -> std::fmt::Result {
@@ -137,9 +146,13 @@ fn main() -> eyre::Result<()> {
     // --- window ---
     let event_loop = EventLoop::new()?;
 
+    let egui_context: egui::Context = Default::default();
+
+    let (icon, logo_image) = get_icon_and_image(&egui_context);
+
     let window = WindowBuilder::new()
         .with_title("automancy")
-        .with_window_icon(Some(get_icon()))
+        .with_window_icon(Some(icon))
         .with_min_inner_size(PhysicalSize::new(200, 200))
         .build(&event_loop)
         .expect("Failed to open window");
@@ -150,7 +163,7 @@ fn main() -> eyre::Result<()> {
     let runtime = Runtime::new().unwrap();
 
     let (mut setup, vertices, indices) = runtime
-        .block_on(GameSetup::setup(camera))
+        .block_on(GameSetup::setup(camera, logo_image))
         .expect("Critical failure in game setup");
 
     // --- render ---
@@ -167,6 +180,7 @@ fn main() -> eyre::Result<()> {
     // --- gui ---
     log::info!("Setting up gui...");
     let mut gui = init_gui(
+        egui_context,
         egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, None, 1),
         &gpu.window,
     );

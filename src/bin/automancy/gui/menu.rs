@@ -1,12 +1,9 @@
-use arboard::ImageData;
-use color_eyre::owo_colors::OwoColorize;
-use std::borrow::Cow;
 use std::fs;
 
-use egui::load::Bytes;
+use egui::load::SizedTexture;
 use egui::{
-    include_image, vec2, Align, Align2, Button, Checkbox, ComboBox, Context, Image, ImageSource,
-    Layout, RichText, ScrollArea, Slider, TextEdit, TextStyle, Window,
+    vec2, Align, Align2, Button, Checkbox, ComboBox, Context, Image, RichText, ScrollArea, Slider,
+    TextEdit, TextStyle, Window,
 };
 use futures::executor::block_on;
 use winit::event_loop::EventLoopWindowTarget;
@@ -23,7 +20,6 @@ use automancy_resources::{format, format_time};
 use crate::event::{shutdown_graceful, EventLoopStorage};
 use crate::gui::{default_frame, OptionsMenuState, PopupState, Screen, SubState, TextField};
 use crate::setup::GameSetup;
-use crate::LOGO;
 
 /// Draws the main menu.
 pub fn main_menu(
@@ -47,11 +43,8 @@ pub fn main_menu(
                     .with_main_align(Align::Center),
                 |ui| {
                     ui.add(
-                        Image::new(ImageSource::Bytes {
-                            uri: Cow::Owned("../assets/logo.png".to_string()),
-                            bytes: Bytes::Static(LOGO),
-                        })
-                        .max_size(vec2(128.0, 128.0)),
+                        Image::new(SizedTexture::from_handle(&setup.logo_image))
+                            .max_size(vec2(128.0, 128.0)),
                     );
                     if ui
                         .add(
