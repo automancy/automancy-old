@@ -130,7 +130,7 @@ fn hsl2rgb(c: vec3<f32>) -> vec3<f32> {
 fn darken(color: vec4<f32>, r: f32) -> vec4<f32> {
     if (r > 0.5) {
         var hsl = rgb2hsl(color.rgb);
-        hsl.z *= 0.5;
+        hsl.z *= 0.75;
 
         return vec4(hsl2rgb(hsl), color.a);
     } else {
