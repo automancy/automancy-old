@@ -9,7 +9,6 @@ use std::{env, panic};
 
 use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
-use color_eyre::owo_colors::OwoColorize;
 use egui::{ColorImage, TextureHandle, TextureOptions};
 use env_logger::Env;
 use futures::executor::block_on;
@@ -132,7 +131,7 @@ fn main() -> eyre::Result<()> {
                     };
 
                     {
-                        eprintln!("\n\n\n{}\n\n\n", message.bright_red());
+                        eprintln!("\n\n\n{}\n\n\n", message);
 
                         _ = MessageDialog::new()
                             .set_type(MessageType::Error)
