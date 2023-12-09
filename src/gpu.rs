@@ -15,6 +15,7 @@ use egui_wgpu::wgpu::{
     TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
     TextureViewDimension, VertexState,
 };
+use wgpu::AdapterInfo;
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -372,6 +373,7 @@ pub struct IntermediateResources {
 pub struct Gpu {
     vsync: bool,
 
+    pub adapter_info: AdapterInfo,
     pub instance: Instance,
     pub device: Device,
     pub queue: Queue,
@@ -1185,6 +1187,7 @@ impl Gpu {
         let mut this = Self {
             vsync: false,
 
+            adapter_info: adapter.get_info(),
             instance,
             device,
             queue,

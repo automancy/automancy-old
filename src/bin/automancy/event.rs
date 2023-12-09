@@ -156,7 +156,7 @@ fn render(
             use crate::gui::debug;
             gui.context.set_debug_on_hover(true);
 
-            debug::debugger(setup, loop_store, &gui.context);
+            debug::debugger(setup, loop_store, renderer, &gui.context);
         } else {
             gui.context.set_debug_on_hover(false);
         }
