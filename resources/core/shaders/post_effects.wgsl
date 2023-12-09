@@ -49,14 +49,14 @@ fn vs_main(
 
 const KERNEL_X = mat3x3<f32>(
     vec3<f32>( 1.0,  0.0, -1.0),
-    vec3<f32>( 1.0,  0.0, -1.0),
+    vec3<f32>( 2.0,  0.0, -2.0),
     vec3<f32>( 1.0,  0.0, -1.0),
 );
 
 const KERNEL_Y = mat3x3<f32>(
-    vec3<f32>( 1.0,  1.0,  1.0),
+    vec3<f32>( 1.0,  2.0,  1.0),
     vec3<f32>( 0.0,  0.0,  0.0),
-    vec3<f32>(-1.0, -1.0, -1.0),
+    vec3<f32>(-1.0, -2.0, -1.0),
 );
 
 const LUMA = vec3<f32>(0.299, 0.587, 0.114);
@@ -85,34 +85,7 @@ fn color_edge(uv: vec2<f32>) -> f32 {
 
     let g = length(vec2(gx, gy));
 
-    return smoothstep(0.15, 1.0, g);
-}
-
-fn normal_edge(uv: vec2<f32>) -> f32 {
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(normal_texture));
-
-    let c  = textureSample(normal_texture, normal_sampler, uv).rgb;
-    let n  = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>( 0.0,  1.0)).rgb);
-    let e  = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>( 1.0,  0.0)).rgb);
-    let s  = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>( 0.0, -1.0)).rgb);
-    let w  = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>(-1.0,  0.0)).rgb);
-    let ne = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>( 1.0,  1.0)).rgb);
-    let nw = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>(-1.0,  1.0)).rgb);
-    let se = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>( 1.0, -1.0)).rgb);
-    let sw = dot(c, textureSample(normal_texture, normal_sampler, uv + texel_size * vec2<f32>(-1.0, -1.0)).rgb);
-
-    let m = mat3x3(
-        vec3(sw,   s, se),
-        vec3( w, 0.0,  e),
-        vec3(nw,   n, ne),
-    );
-
-    let gx = dot(KERNEL_X[0], m[0]) + dot(KERNEL_X[1], m[1]) + dot(KERNEL_X[2], m[2]);
-    let gy = dot(KERNEL_Y[0], m[0]) + dot(KERNEL_Y[1], m[1]) + dot(KERNEL_Y[2], m[2]);
-
-    let g = length(vec2(gx, gy));
-
-    return smoothstep(0.3, 1.0, g);
+    return sqrt(g);
 }
 
 fn depth_edge(uv: vec2<f32>) -> f32 {
@@ -121,17 +94,11 @@ fn depth_edge(uv: vec2<f32>) -> f32 {
     let c  = textureSample(depth_texture, depth_sampler, uv).r;
     let n  = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 0.0,  1.0)).r;
     let e  = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 1.0,  0.0)).r;
-    let s  = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 0.0, -1.0)).r;
-    let w  = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>(-1.0,  0.0)).r;
-    let ne = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 1.0,  1.0)).r;
-    let nw = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>(-1.0,  1.0)).r;
-    let se = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 1.0, -1.0)).r;
-    let sw = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>(-1.0, -1.0)).r;
 
     let m = mat3x3(
-        vec3(sw,  s, se),
-        vec3( w,  c,  e),
-        vec3(nw,  n, ne),
+        vec3( c,  c,  c),
+        vec3( c,  c,  e),
+        vec3( c,  n,  c),
     );
 
     let gx = dot(KERNEL_X[0], m[0]) + dot(KERNEL_X[1], m[1]) + dot(KERNEL_X[2], m[2]);
@@ -139,7 +106,7 @@ fn depth_edge(uv: vec2<f32>) -> f32 {
 
     let g = length(vec2(gx, gy));
 
-    return smoothstep(0.2, 0.8, g);
+    return smoothstep(0.4, 1.0, 1.0 - g);
 }
 
 fn rgb2hsl(c: vec3<f32>) -> vec3<f32> {
@@ -161,9 +128,9 @@ fn hsl2rgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 fn darken(color: vec4<f32>, r: f32) -> vec4<f32> {
-    if (r > 0.05) {
+    if (r > 0.5) {
         var hsl = rgb2hsl(color.rgb);
-        hsl.z = 0.05;
+        hsl.z *= 0.5;
 
         return vec4(hsl2rgb(hsl), color.a);
     } else {
@@ -175,9 +142,8 @@ fn darken(color: vec4<f32>, r: f32) -> vec4<f32> {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = textureSample(frame_texture, frame_sampler, in.uv);
 
-    let color_edge_c = color + color * color_edge(in.uv);
-    let normal_edge_c = normal_edge(in.uv);
-    let depth_edge_c =  depth_edge(in.uv);
+    let color_edge_c = darken(color, color_edge(in.uv));
+    let depth_edge_c = vec4(vec3(depth_edge(in.uv)), 1.0);
 
-    return darken(color_edge_c, normal_edge_c * depth_edge_c);
+    return color_edge_c * depth_edge_c;
 }

@@ -6,10 +6,9 @@ use arboard::{Clipboard, ImageData};
 use egui::{Rect, Rgba};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu::{
-    BindGroupDescriptor, BindGroupEntry, BindingResource, BufferAddress, BufferDescriptor,
-    BufferUsages, Color, CommandEncoderDescriptor, ImageCopyBuffer, ImageDataLayout, IndexFormat,
-    LoadOp, Maintain, MapMode, Operations, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp::Discard, StoreOp::Store,
+    BufferAddress, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor,
+    ImageCopyBuffer, ImageDataLayout, IndexFormat, LoadOp, Maintain, MapMode, Operations,
+    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     SurfaceError, TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor,
     COPY_BUFFER_ALIGNMENT, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
@@ -17,6 +16,7 @@ use futures::executor::block_on;
 use image::{EncodableLayout, RgbaImage};
 use num::PrimInt;
 use tokio::sync::oneshot;
+use wgpu::StoreOp;
 use winit::dpi::PhysicalSize;
 
 use automancy::game::{GameMsg, RenderUnit, TransactionRecord, TRANSACTION_ANIMATION_SPEED};
@@ -357,7 +357,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(Color::BLACK),
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -365,15 +365,15 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(NORMAL_CLEAR),
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
                         view: &self.gpu.model_depth_texture().1,
                         resolve_target: None,
                         ops: Operations {
-                            load: LoadOp::Clear(Color::BLACK),
-                            store: Store,
+                            load: LoadOp::Clear(Color::TRANSPARENT),
+                            store: StoreOp::Store,
                         },
                     }),
                 ],
@@ -381,7 +381,7 @@ impl Renderer {
                     view: &self.gpu.depth_texture().1,
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(0.0),
-                        store: Store,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
@@ -426,7 +426,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -476,7 +476,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -484,7 +484,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Discard,
+                            store: StoreOp::Discard,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -492,7 +492,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Discard,
+                            store: StoreOp::Discard,
                         },
                     }),
                 ],
@@ -500,7 +500,7 @@ impl Renderer {
                     view: &self.gpu.depth_texture().1,
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: Discard,
+                        store: StoreOp::Discard,
                     }),
                     stencil_ops: None,
                 }),
@@ -549,7 +549,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -557,7 +557,7 @@ impl Renderer {
                 timestamp_writes: None,
             });
 
-            antialiasing_pass.set_pipeline(&self.gpu.antialiasing_resources.pipeline);
+            antialiasing_pass.set_pipeline(&self.gpu.antialiasing_resources.fxaa_pipeline);
             antialiasing_pass.set_bind_group(
                 0,
                 self.gpu.game_resources.antialiasing_bind_group(),
@@ -590,7 +590,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(Color::TRANSPARENT),
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
@@ -617,7 +617,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -646,7 +646,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(Color::TRANSPARENT),
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -654,15 +654,15 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(NORMAL_CLEAR),
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
                         view: &self.gpu.model_depth_texture().1,
                         resolve_target: None,
                         ops: Operations {
-                            load: LoadOp::Clear(Color::BLACK),
-                            store: Store,
+                            load: LoadOp::Clear(Color::TRANSPARENT),
+                            store: StoreOp::Store,
                         },
                     }),
                 ],
@@ -670,7 +670,7 @@ impl Renderer {
                     view: &self.gpu.depth_texture().1,
                     depth_ops: Some(Operations {
                         load: LoadOp::Clear(0.0),
-                        store: Store,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
@@ -771,7 +771,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -779,7 +779,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -787,7 +787,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                 ],
@@ -795,7 +795,7 @@ impl Renderer {
                     view: &self.gpu.depth_texture().1,
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: Store,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
@@ -840,7 +840,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -879,7 +879,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -887,7 +887,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Discard,
+                            store: StoreOp::Discard,
                         },
                     }),
                     Some(RenderPassColorAttachment {
@@ -895,7 +895,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Discard,
+                            store: StoreOp::Discard,
                         },
                     }),
                 ],
@@ -903,7 +903,7 @@ impl Renderer {
                     view: &self.gpu.depth_texture().1,
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: Discard,
+                        store: StoreOp::Discard,
                     }),
                     stencil_ops: None,
                 }),
@@ -981,7 +981,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -989,7 +989,7 @@ impl Renderer {
                 timestamp_writes: None,
             });
 
-            antialiasing_pass.set_pipeline(&self.gpu.antialiasing_resources.pipeline);
+            antialiasing_pass.set_pipeline(&self.gpu.antialiasing_resources.fxaa_pipeline);
             antialiasing_pass.set_bind_group(
                 0,
                 self.gpu.gui_resources.antialiasing_bind_group(),
@@ -1006,7 +1006,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -1031,7 +1031,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
-                        store: Store,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -1072,23 +1072,6 @@ impl Renderer {
             let intermediate_texture_view =
                 intermediate_texture.create_view(&TextureViewDescriptor::default());
 
-            let intermediate_bind_group = self.gpu.device.create_bind_group(&BindGroupDescriptor {
-                label: None,
-                layout: &self.gpu.intermediate_resources.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(
-                            &self.gpu.second_combine_resources.texture().1,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&self.gpu.non_filtering_sampler),
-                    },
-                ],
-            });
-
             {
                 let mut intermediate_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                     label: Some("Screenshot Intermediate Pass"),
@@ -1097,7 +1080,7 @@ impl Renderer {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: Store,
+                            store: StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
@@ -1107,7 +1090,11 @@ impl Renderer {
 
                 intermediate_pass
                     .set_pipeline(&self.gpu.intermediate_resources.screenshot_pipeline);
-                intermediate_pass.set_bind_group(0, &intermediate_bind_group, &[]);
+                intermediate_pass.set_bind_group(
+                    0,
+                    self.gpu.intermediate_resources.present_bind_group(),
+                    &[],
+                );
                 intermediate_pass.draw(0..3, 0..1);
             }
 

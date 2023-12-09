@@ -29,25 +29,25 @@ fn vs_main(
     return out;
 }
 
-const FXAA_SPAN_MAX: f32 = 4.0;
+const FXAA_SPAN_MAX: f32 = 2.0;
 const FXAA_REDUCE_MIN: f32 = 0.0;
 const FXAA_REDUCE_MUL: f32 = 1.0;
 const LUMA = vec3<f32>(0.299, 0.587, 0.114);
 
-fn fxaa(tex: texture_2d<f32>, s: sampler, uv: vec2<f32>) -> vec3<f32> {
+fn fxaa(tex: texture_2d<f32>, s: sampler, uv: vec2<f32>) -> vec4<f32> {
     let texel_size = 1.0 / vec2<f32>(textureDimensions(tex));
 
-    let c  = textureSample(tex, s, uv).rgb;
-    let ne = textureSample(tex, s, uv + texel_size * vec2<f32>( 1.0,  1.0)).rgb;
-    let nw = textureSample(tex, s, uv + texel_size * vec2<f32>(-1.0,  1.0)).rgb;
-    let se = textureSample(tex, s, uv + texel_size * vec2<f32>( 1.0, -1.0)).rgb;
-    let sw = textureSample(tex, s, uv + texel_size * vec2<f32>(-1.0, -1.0)).rgb;
+    let c  = textureSample(tex, s, uv);
+    let ne = textureSample(tex, s, uv + texel_size * vec2<f32>( 1.0,  1.0));
+    let nw = textureSample(tex, s, uv + texel_size * vec2<f32>(-1.0,  1.0));
+    let se = textureSample(tex, s, uv + texel_size * vec2<f32>( 1.0, -1.0));
+    let sw = textureSample(tex, s, uv + texel_size * vec2<f32>(-1.0, -1.0));
 
-    let luma_ne = dot(ne, LUMA);
-    let luma_nw = dot(nw, LUMA);
-    let luma_se = dot(se, LUMA);
-    let luma_sw = dot(sw, LUMA);
-    let luma_c  = dot(c,  LUMA);
+    let luma_ne = dot(ne.rgb * ne.a, LUMA);
+    let luma_nw = dot(nw.rgb * nw.a, LUMA);
+    let luma_se = dot(se.rgb * se.a, LUMA);
+    let luma_sw = dot(sw.rgb * sw.a, LUMA);
+    let luma_c  = dot( c.rgb *  c.a, LUMA);
 
     let luma_min = min(luma_c, min(min(luma_nw, luma_ne), min(luma_sw, luma_se)));
     let luma_max = max(luma_c, max(max(luma_nw, luma_ne), max(luma_sw, luma_se)));
@@ -62,25 +62,23 @@ fn fxaa(tex: texture_2d<f32>, s: sampler, uv: vec2<f32>) -> vec3<f32> {
         FXAA_REDUCE_MIN
     );
 
-    let texel_dir = min(
-        vec2(FXAA_SPAN_MAX, FXAA_SPAN_MAX),
-        max(
-            vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),
-            dir / (min(abs(dir.x), abs(dir.y)) + dir_reduce)
-        )
+    let texel_dir = clamp(
+        dir / (min(abs(dir.x), abs(dir.y)) + dir_reduce),
+        vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),
+        vec2(FXAA_SPAN_MAX, FXAA_SPAN_MAX)
     ) * texel_size;
 
     let rgb_a = (1.0 / 2.0) * (
-        textureSample(tex, s, uv + texel_dir * (1.0 / 3.0 - 0.5)).rgb +
-        textureSample(tex, s, uv + texel_dir * (2.0 / 3.0 - 0.5)).rgb
+        textureSample(tex, s, uv + texel_dir * (1.0 / 3.0 - 0.5)) +
+        textureSample(tex, s, uv + texel_dir * (2.0 / 3.0 - 0.5))
     );
 
     let rgb_b = rgb_a * (1.0 / 2.0) + (1.0 / 4.0) * (
-        textureSample(tex, s, uv + texel_dir * (0.0 / 3.0 - 0.5)).rgb +
-        textureSample(tex, s, uv + texel_dir * (3.0 / 3.0 - 0.5)).rgb
+        textureSample(tex, s, uv + texel_dir * (0.0 / 3.0 - 0.5)) +
+        textureSample(tex, s, uv + texel_dir * (3.0 / 3.0 - 0.5))
     );
 
-    let luma_b = dot(rgb_b, LUMA);
+    let luma_b = dot(rgb_b.rgb, LUMA);
 
     if ((luma_b < luma_min) || (luma_b > luma_max)) {
         return rgb_a;
@@ -91,7 +89,5 @@ fn fxaa(tex: texture_2d<f32>, s: sampler, uv: vec2<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureSample(frame_texture, frame_sampler, in.uv);
-
-    return vec4(fxaa(frame_texture, frame_sampler, in.uv), color.a);
+    return fxaa(frame_texture, frame_sampler, in.uv);
 }

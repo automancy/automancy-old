@@ -30,9 +30,9 @@ use automancy_resources::ResourceManager;
 pub const GPU_BACKENDS: Backends = Backends::all();
 
 pub const NORMAL_CLEAR: Color = Color {
-    r: 1.0,
+    r: 0.0,
     g: 0.0,
-    b: 0.0,
+    b: 1.0,
     a: 0.0,
 };
 
@@ -356,7 +356,7 @@ pub struct PostEffectsResources {
 #[derive(OptionGetter)]
 pub struct AntialiasingResources {
     pub bind_group_layout: BindGroupLayout,
-    pub pipeline: RenderPipeline,
+    pub fxaa_pipeline: RenderPipeline,
     #[getters(get)]
     texture: Option<(Texture, TextureView)>,
 }
@@ -527,9 +527,9 @@ impl Gpu {
             source: ShaderSource::Wgsl(resource_man.shaders["combine"].as_str().into()),
         });
 
-        let antialiasing_shader = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("Antialiasing Shader"),
-            source: ShaderSource::Wgsl(resource_man.shaders["antialiasing"].as_str().into()),
+        let fxaa_shader = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some("FXAA Shader"),
+            source: ShaderSource::Wgsl(resource_man.shaders["fxaa"].as_str().into()),
         });
 
         let intermediate_shader = device.create_shader_module(ShaderModuleDescriptor {
@@ -1043,16 +1043,16 @@ impl Gpu {
                 push_constant_ranges: &[],
             });
 
-            let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-                label: Some("Antialiasing Render Pipeline"),
+            let fxaa_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+                label: Some("FXAA Render Pipeline"),
                 layout: Some(&pipeline_layout),
                 vertex: VertexState {
-                    module: &antialiasing_shader,
+                    module: &fxaa_shader,
                     entry_point: "vs_main",
                     buffers: &[],
                 },
                 fragment: Some(FragmentState {
-                    module: &antialiasing_shader,
+                    module: &fxaa_shader,
                     entry_point: "fs_main",
                     targets: &[Some(ColorTargetState {
                         format: config.format,
@@ -1077,7 +1077,7 @@ impl Gpu {
 
             AntialiasingResources {
                 bind_group_layout,
-                pipeline,
+                fxaa_pipeline,
                 texture: None,
             }
         };
@@ -1243,6 +1243,14 @@ impl Gpu {
             height: config.height,
             depth_or_array_layers: 1,
         };
+
+        /*
+        let extent_down2 = Extent3d {
+            width: extent.width / 2,
+            height: extent.height / 2,
+            depth_or_array_layers: extent.depth_or_array_layers,
+        };
+         */
 
         self.game_texture = Some(create_texture_and_view(
             device,
@@ -1436,6 +1444,6 @@ impl Gpu {
                         resource: BindingResource::Sampler(&self.non_filtering_sampler),
                     },
                 ],
-            }))
+            }));
     }
 }
