@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use std::fmt::Write;
 use std::fs::File;
 use std::panic::PanicInfo;
