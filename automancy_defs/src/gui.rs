@@ -95,15 +95,18 @@ fn init_styles(gui: &Gui) {
 /// Initializes the GUI.
 pub fn init_gui(context: Context, renderer: egui_wgpu::Renderer, window: &Window) -> Gui {
     egui_extras::install_image_loaders(&context);
+    let viewport_id = context.viewport_id();
+
     let gui = Gui {
-        renderer,
+        context: context.clone(),
         state: State::new(
-            context.viewport_id(),
+            context,
+            viewport_id,
             window,
             Some(window.scale_factor() as f32),
             None,
         ),
-        context,
+        renderer,
         fonts: FontDefinitions::default(),
     };
     init_styles(&gui);

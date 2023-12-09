@@ -371,7 +371,11 @@ pub fn on_event(
         }
 
         Event::WindowEvent { event, window_id } if window_id == &renderer.gpu.window.id() => {
-            if !gui.state.on_window_event(&gui.context, event).consumed {
+            if !gui
+                .state
+                .on_window_event(&renderer.gpu.window, event)
+                .consumed
+            {
                 window_event = Some(event);
             }
 
