@@ -1,4 +1,4 @@
 (
-    id: "automancy:item/coal",
+    id: "item/coal",
     file: "coal.glb",
 )

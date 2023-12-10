@@ -25,7 +25,7 @@ use automancy_resources::ResourceManager;
 
 use crate::game::GameMsg::*;
 use crate::map::{Map, MapInfo, TileEntities};
-use crate::tile_entity::{TileEntity, TileEntityMsg, TileModifier};
+use crate::tile_entity::{TileEntity, TileEntityMsg};
 use crate::util::actor::multi_call_iter;
 
 /// Game ticks per second
@@ -86,7 +86,6 @@ pub enum GameMsg {
     PlaceTile {
         coord: TileCoord,
         id: Id,
-        tile_modifier: TileModifier,
         data: Option<DataMap>,
         record: bool,
         reply: Option<RpcReplyPort<PlaceTileResponse>>,
@@ -108,7 +107,7 @@ pub enum GameMsg {
     GetMapInfo(RpcReplyPort<(MapInfo, String)>),
 
     /// get the tile at the given position
-    GetTile(TileCoord, RpcReplyPort<Option<(Id, TileModifier)>>),
+    GetTile(TileCoord, RpcReplyPort<Option<Id>>),
     /// get the tile entity at the given position
     GetTileEntity(TileCoord, RpcReplyPort<Option<ActorRef<TileEntityMsg>>>),
 
@@ -245,12 +244,11 @@ impl Actor for Game {
                             .tiles
                             .iter()
                             .filter(|(coord, _)| culling_range.contains(**coord))
-                            .flat_map(|(coord, (id, tile_modifier))| {
+                            .flat_map(|(coord, id)| {
                                 self.resource_man
                                     .registry
                                     .tile(*id)
-                                    .and_then(|r| r.models.get(*tile_modifier as usize).cloned())
-                                    .map(|id| self.resource_man.get_model(id))
+                                    .map(|tile| self.resource_man.get_model(tile.model))
                                     .map(|model| {
                                         let p = math::hex_to_pixel((*coord).into());
 
@@ -290,13 +288,12 @@ impl Actor for Game {
                     PlaceTile {
                         coord,
                         id,
-                        tile_modifier,
                         data,
                         record,
                         reply,
                     } => {
-                        if let Some((old_id, old_tile_modifier)) = state.map.tiles.get(&coord) {
-                            if *old_tile_modifier == tile_modifier && *old_id == id {
+                        if let Some(old_id) = state.map.tiles.get(&coord) {
+                            if *old_id == id {
                                 if let Some(reply) = reply {
                                     reply.send(PlaceTileResponse::Ignored).unwrap();
                                 }
@@ -330,20 +327,18 @@ impl Actor for Game {
                                 state,
                                 coord,
                                 id,
-                                tile_modifier,
                                 data,
                             )
                             .await
                         };
 
                         if record {
-                            let (id, tile_modifier, data) =
-                                old_tile.unwrap_or((self.resource_man.registry.none, 0, None));
+                            let (id, data) =
+                                old_tile.unwrap_or((self.resource_man.registry.none, None));
 
                             state.undo_steps.push_back(vec![PlaceTile {
                                 coord,
                                 id,
-                                tile_modifier,
                                 record: false,
                                 reply: None,
                                 data,
@@ -372,7 +367,7 @@ impl Actor for Game {
                             let mut fulfilled = false;
 
                             for neighbor in TileHex::NEIGHBORS.iter().map(|v| coord + (*v).into()) {
-                                if let Some((id, _)) = state.map.tiles.get(&neighbor) {
+                                if let Some(id) = state.map.tiles.get(&neighbor) {
                                     if item_match(&self.resource_man, *id, adjacent) {
                                         fulfilled = true;
                                         break;
@@ -440,7 +435,7 @@ impl Actor for Game {
                             }
                         }
 
-                        if let Some(((source_id, _), (id, _))) = state
+                        if let Some((source_id, id)) = state
                             .map
                             .tiles
                             .get(&source_coord)
@@ -471,7 +466,7 @@ impl Actor for Game {
                             }
                         }
 
-                        for (coord, (id, modifier, data)) in removed {
+                        for (coord, (id, data)) in removed {
                             let new_coord = coord + direction;
 
                             insert_new_tile(
@@ -480,7 +475,6 @@ impl Actor for Game {
                                 state,
                                 new_coord,
                                 id,
-                                modifier,
                                 data,
                             )
                             .await;
@@ -532,14 +526,12 @@ pub async fn new_tile(
     game: ActorRef<GameMsg>,
     coord: TileCoord,
     id: Id,
-    tile_modifier: TileModifier,
 ) -> ActorRef<TileEntityMsg> {
     let (actor, _handle) = Actor::spawn_linked(
         None,
         TileEntity {
             id,
             coord,
-            tile_modifier,
             resource_man,
         },
         (game.clone(),),
@@ -552,10 +544,7 @@ pub async fn new_tile(
 }
 
 /// Stops a tile and removes it from the game
-async fn remove_tile(
-    state: &mut GameState,
-    coord: TileCoord,
-) -> Option<(Id, TileModifier, Option<DataMap>)> {
+async fn remove_tile(state: &mut GameState, coord: TileCoord) -> Option<(Id, Option<DataMap>)> {
     let data = if let Some(tile_entity) = state.tile_entities.remove(&coord) {
         let data = tile_entity
             .call(TileEntityMsg::TakeData, None)
@@ -570,11 +559,7 @@ async fn remove_tile(
         None
     };
 
-    state
-        .map
-        .tiles
-        .remove(&coord)
-        .map(|(id, modifier)| (id, modifier, data))
+    state.map.tiles.remove(&coord).map(|id| (id, data))
 }
 
 /// Makes a new tile and add it into both the map and the game
@@ -584,12 +569,11 @@ async fn insert_new_tile(
     state: &mut GameState,
     coord: TileCoord,
     id: Id,
-    tile_modifier: TileModifier,
     data: Option<DataMap>,
-) -> Option<(Id, TileModifier, Option<DataMap>)> {
+) -> Option<(Id, Option<DataMap>)> {
     let old = remove_tile(state, coord).await;
 
-    let tile_entity = new_tile(resource_man, game, coord, id, tile_modifier).await;
+    let tile_entity = new_tile(resource_man, game, coord, id).await;
 
     if let Some(data) = data {
         tile_entity
@@ -598,7 +582,7 @@ async fn insert_new_tile(
     }
 
     state.tile_entities.insert(coord, tile_entity);
-    state.map.tiles.insert(coord, (id, tile_modifier));
+    state.map.tiles.insert(coord, id);
 
     old
 }

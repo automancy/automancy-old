@@ -14,14 +14,14 @@ use crate::{load_recursively, ResourceManager, RON_EXT};
 pub struct TileRaw {
     pub id: IdRaw,
     pub function: Option<IdRaw>,
-    pub models: Vec<IdRaw>,
+    pub model: IdRaw,
     #[serde(default)]
     pub data: DataMapRaw,
 }
 
 #[derive(Debug, Clone)]
 pub struct Tile {
-    pub models: Vec<Id>,
+    pub model: Id,
     pub function: Option<Id>,
     pub data: DataMap,
 }
@@ -33,28 +33,22 @@ impl ResourceManager {
         let tile: TileRaw = ron::from_str(&read_to_string(file)?)?;
 
         let id = tile.id.to_id(&mut self.interner);
-
         let function = tile.function.map(|v| v.to_id(&mut self.interner));
-
         let data = tile.data.intern_to_data(&mut self.interner);
-
-        let models = tile
-            .models
-            .into_iter()
-            .map(|v| v.to_id(&mut self.interner))
-            .collect();
+        let model = tile.model.to_id(&mut self.interner);
 
         self.registry.tiles.insert(
             id,
             Tile {
                 function,
-                models,
+                model,
                 data,
             },
         );
 
         Ok(())
     }
+
     pub fn load_tiles(&mut self, dir: &Path) -> anyhow::Result<()> {
         let tiles = dir.join("tiles");
 

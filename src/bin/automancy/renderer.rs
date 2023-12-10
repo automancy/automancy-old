@@ -194,7 +194,7 @@ impl Renderer {
                 .registry
                 .tile(setup.resource_man.registry.none)
                 .unwrap()
-                .models[0];
+                .model;
 
             for q in culling_range.start().q()..=culling_range.end().q() {
                 for r in culling_range.start().r()..=culling_range.end().r() {

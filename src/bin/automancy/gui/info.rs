@@ -38,7 +38,7 @@ pub fn info(setup: &GameSetup, item_instances: &mut GuiInstances, context: &Cont
         .unwrap()
         .unwrap();
 
-        if let Some((tile_entity, (id, _))) = tile_entity.zip(tile) {
+        if let Some((tile_entity, id)) = tile_entity.zip(tile) {
             ui.label(setup.resource_man.tile_name(&id));
 
             let data = block_on(tile_entity.call(TileEntityMsg::GetData, None))

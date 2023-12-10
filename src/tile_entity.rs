@@ -21,16 +21,13 @@ fn rhai_call_options(rhai_state: &mut Dynamic) -> CallFnOptions {
         .bind_this_ptr(rhai_state)
 }
 
-pub type TileModifier = INT;
-
 #[derive(Debug, Clone)]
 pub struct TileEntity {
     /// The ID of the tile entity.
     pub id: Id,
     /// The coordinates of the tile entity.
     pub coord: TileCoord,
-    /// The tile modifier of the tile entity.
-    pub tile_modifier: TileModifier,
+    /// The handle to the Resource Manager
     pub resource_man: Arc<ResourceManager>,
 }
 
@@ -252,10 +249,6 @@ impl TileEntity {
                 ast,
                 "handle_transaction",
                 (rhai::Map::from([
-                    (
-                        "tile_modifier".into(),
-                        Dynamic::from_int(self.tile_modifier),
-                    ),
                     ("coord".into(), Dynamic::from(self.coord)),
                     ("id".into(), Dynamic::from_int(self.id.into())),
                     ("source_coord".into(), Dynamic::from(source_coord)),
@@ -362,10 +355,6 @@ impl Actor for TileEntity {
                         ast,
                         "handle_tick",
                         (rhai::Map::from([
-                            (
-                                "tile_modifier".into(),
-                                Dynamic::from_int(self.tile_modifier),
-                            ),
                             ("coord".into(), Dynamic::from(self.coord)),
                             ("id".into(), Dynamic::from_int(self.id.into())),
                             ("random".into(), Dynamic::from_int(random())),
@@ -423,10 +412,6 @@ impl Actor for TileEntity {
                             ast,
                             "handle_transaction_result",
                             (rhai::Map::from([
-                                (
-                                    "tile_modifier".into(),
-                                    Dynamic::from_int(self.tile_modifier),
-                                ),
                                 ("coord".into(), Dynamic::from(self.coord)),
                                 ("id".into(), Dynamic::from_int(self.id.into())),
                                 ("random".into(), Dynamic::from_int(random())),
@@ -492,10 +477,6 @@ impl Actor for TileEntity {
                         ast,
                         "handle_extract_request",
                         (rhai::Map::from([
-                            (
-                                "tile_modifier".into(),
-                                Dynamic::from_int(self.tile_modifier),
-                            ),
                             ("coord".into(), Dynamic::from(self.coord)),
                             ("id".into(), Dynamic::from_int(self.id.into())),
                             ("random".into(), Dynamic::from_int(random())),

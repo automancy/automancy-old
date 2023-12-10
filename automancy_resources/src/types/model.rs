@@ -73,15 +73,15 @@ impl ResourceManager {
                 let mut read_outputs = vec![];
 
                 if let Some((inputs, outputs)) = reader.read_inputs().zip(reader.read_outputs()) {
-                    let max = sampler
-                        .output()
-                        .max()
-                        .as_ref()
-                        .and_then(json::Value::as_f64)
-                        .unwrap_or(0.0) as f32;
                     let min = sampler
                         .output()
                         .min()
+                        .as_ref()
+                        .and_then(json::Value::as_f64)
+                        .unwrap_or(0.0) as f32;
+                    let max = sampler
+                        .output()
+                        .max()
                         .as_ref()
                         .and_then(json::Value::as_f64)
                         .unwrap_or(0.0) as f32;

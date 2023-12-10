@@ -3,23 +3,15 @@ fn id_deps() {
 }
 
 fn function_id() {
-    "splitter"
+    "splitter_right"
 }
 
 fn handle_transaction(input) {
-    let dirs = if input.tile_modifier == 0 {
-        [
-            TileCoord::TOP_LEFT,
-            TileCoord::BOTTOM_LEFT,
-            TileCoord::RIGHT
-        ]
-    } else {
-        [
-            TileCoord::TOP_RIGHT,
-            TileCoord::BOTTOM_RIGHT,
-            TileCoord::LEFT,
-        ]
-    };
+    let dirs = [
+       TileCoord::TOP_LEFT,
+       TileCoord::BOTTOM_LEFT,
+       TileCoord::RIGHT
+   ];
 
     let direction = input.source_coord - input.coord;
 

@@ -1,4 +1,4 @@
 (
-    id: "automancy:item/gravel",
+    id: "item/gravel",
     file: "gravel.glb",
 )

@@ -1,4 +1,4 @@
 (
-    id: "automancy:chaos",
-    model: "automancy:item/chaos",
+    id: "chaos",
+    model: "item/chaos",
 )

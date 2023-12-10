@@ -1,4 +1,4 @@
 (
-    id: "automancy:item/silver",
+    id: "item/silver",
     file: "silver.glb",
 )

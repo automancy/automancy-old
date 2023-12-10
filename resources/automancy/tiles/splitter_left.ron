@@ -1,0 +1,9 @@
+(
+    id: "splitter_left",
+    function: Some("splitter_left"),
+    model: "splitter_left",
+    data: ({
+        "not_targeted": Bool(true),
+        "default_tile": Bool(true)
+    }),
+)

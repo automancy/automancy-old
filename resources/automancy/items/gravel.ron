@@ -1,4 +1,4 @@
 (
-    id: "automancy:gravel",
-    model: "automancy:item/gravel",
+    id: "gravel",
+    model: "item/gravel",
 )

@@ -1,10 +1,10 @@
 (
-    id: "automancy:gravel",
+    id: "gravel",
     adjacent: None,
     instructions: (
         inputs: None,
         output: [
-            ("automancy:gravel", 4),
+            ("gravel", 4),
         ],
     ),
 )

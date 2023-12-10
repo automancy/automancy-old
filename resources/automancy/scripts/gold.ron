@@ -1,13 +1,13 @@
 (
-    id: "automancy:gold",
+    id: "gold",
     adjacent: None,
     instructions: (
         inputs: Some([
-            ("automancy:water", 16),
-            ("automancy:gravel", 256),
+            ("water", 16),
+            ("gravel", 256),
         ]),
         output: [
-            ("automancy:gold", 1),
+            ("gold", 1),
         ],
     ),
 )

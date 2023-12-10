@@ -1,4 +1,4 @@
 (
-    id: "automancy:gold",
-    model: "automancy:item/gold",
+    id: "gold",
+    model: "item/gold",
 )

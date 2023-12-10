@@ -1,10 +1,10 @@
 (
-    id: "automancy:coal",
+    id: "coal",
     adjacent: None,
     instructions: (
         inputs: None,
         output: [
-            ("automancy:coal", 8),
+            ("coal", 8),
         ],
     ),
 )

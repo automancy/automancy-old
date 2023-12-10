@@ -1,4 +1,4 @@
 (
-    id: "automancy:philosophers_stone",
-    model: "automancy:item/philosophers_stone",
+    id: "philosophers_stone",
+    model: "item/philosophers_stone",
 )

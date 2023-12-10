@@ -15,7 +15,7 @@ use winit::event_loop::EventLoopWindowTarget;
 use automancy::game::{GameMsg, PlaceTileResponse};
 use automancy::input;
 use automancy::input::KeyActions;
-use automancy::tile_entity::{TileEntityMsg, TileModifier};
+use automancy::tile_entity::TileEntityMsg;
 use automancy_defs::cgmath::{point2, vec3};
 use automancy_defs::colors::ColorAdj;
 use automancy_defs::coord::{ChunkCoord, TileCoord};
@@ -39,8 +39,6 @@ use crate::setup::GameSetup;
 pub struct EventLoopStorage {
     /// fuzzy search engine
     pub fuse: Fuse,
-    /// the tile states of the selected tiles.
-    pub selected_tile_modifiers: HashMap<Id, TileModifier>,
     /// the currently selected tile.
     pub selected_id: Option<Id>,
     /// the last placed tile, to prevent repeatedly sending place requests
@@ -69,7 +67,6 @@ impl Default for EventLoopStorage {
     fn default() -> Self {
         Self {
             fuse: Fuse::default(),
-            selected_tile_modifiers: Default::default(),
             selected_id: None,
             already_placed_at: None,
             config_open: None,
@@ -190,7 +187,6 @@ fn render(
                             setup,
                             &mut gui_instances,
                             &gui.context,
-                            &loop_store.selected_tile_modifiers,
                             selection_send,
                             &game_data,
                         );
@@ -213,20 +209,7 @@ fn render(
                         let cursor_pos = point2(cursor_pos.x, cursor_pos.y);
 
                         if let Some(id) = loop_store.selected_id {
-                            if let Some(model) =
-                                setup.resource_man.registry.tile(id).and_then(|v| {
-                                    v.models
-                                        .get(
-                                            loop_store
-                                                .selected_tile_modifiers
-                                                .get(&id)
-                                                .cloned()
-                                                .unwrap_or(0)
-                                                as usize,
-                                        )
-                                        .cloned()
-                                })
-                            {
+                            if let Some(tile) = setup.resource_man.registry.tile(id) {
                                 overlay_instances.push((
                                     InstanceData {
                                         alpha: 0.6,
@@ -238,7 +221,7 @@ fn render(
                                         )),
                                         ..Default::default()
                                     },
-                                    model,
+                                    tile.model,
                                 ));
                             }
                         }
@@ -457,8 +440,6 @@ pub fn on_event(
                         |reply| GameMsg::PlaceTile {
                             coord: setup.camera.pointing_at,
                             id,
-                            tile_modifier:
-                                *loop_store.selected_tile_modifiers.get(&id).unwrap_or(&0),
                             record: true,
                             reply: Some(reply),
                             data: None,
@@ -503,7 +484,7 @@ pub fn on_event(
                 .unwrap();
 
                 if let Some((linked, tile_entity)) = tile
-                    .and_then(|(id, _)| {
+                    .and_then(|id| {
                         resource_man
                             .registry
                             .tile_data(id, resource_man.registry.data_ids.linked)
@@ -541,14 +522,6 @@ pub fn on_event(
                         }
                     }
                 }
-            } else if let Some(id) = loop_store.selected_id {
-                let new = loop_store.selected_tile_modifiers.get(&id).unwrap_or(&0) + 1;
-                let max = resource_man.registry.tile(id).unwrap().models.len() as TileModifier;
-
-                loop_store.selected_tile_modifiers.insert(id, new % max);
-                loop_store.already_placed_at = None;
-
-                setup.audio_man.play(resource_man.audio["click"].clone())?;
             } else if loop_store.config_open == Some(setup.camera.pointing_at) {
                 loop_store.config_open = None;
                 loop_store

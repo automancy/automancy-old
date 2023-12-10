@@ -1,9 +1,7 @@
 (
-    id: "automancy:node",
-    function: Some("automancy:node"),
-    models: [
-        "automancy:node",
-    ],
+    id: "node",
+    function: Some("node"),
+    model: "node",
     data: ({
         "linked": Bool(true),
     }),

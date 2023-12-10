@@ -1,13 +1,11 @@
 (
-    id: "automancy:basic_extractor",
-    function: Some("automancy:machine"),
-    models: [
-        "automancy:basic_extractor",
-    ],
+    id: "basic_extractor",
+    function: Some("machine"),
+    model: "basic_extractor",
     data: ({
         "scripts": VecId([
-            "automancy:coal",
-            "automancy:gravel",
+            "coal",
+            "gravel",
         ]),
         "default_tile": Bool(true),
     }),

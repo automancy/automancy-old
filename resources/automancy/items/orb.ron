@@ -1,4 +1,4 @@
 (
-    id: "automancy:orb",
-    model: "automancy:item/orb",
+    id: "orb",
+    model: "item/orb",
 )

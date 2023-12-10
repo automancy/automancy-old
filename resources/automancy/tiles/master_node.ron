@@ -1,9 +1,7 @@
 (
-    id: "automancy:master_node",
-    function: Some("automancy:master_node"),
-    models: [
-        "automancy:master_node",
-    ],
+    id: "master_node",
+    function: Some("master_node"),
+    model: "master_node",
     data: ({
         "linking": Bool(true),
     }),

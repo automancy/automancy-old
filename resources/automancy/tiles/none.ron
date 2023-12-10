@@ -1,9 +1,7 @@
 (
-    id: "automancy:none",
+    id: "none",
     function: None,
-    models: [
-        "automancy:none",
-    ],
+    model: "none",
     data: ({
         "default_tile": Bool(true),
     }),

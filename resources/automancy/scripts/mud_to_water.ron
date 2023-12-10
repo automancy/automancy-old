@@ -1,12 +1,12 @@
 (
-    id: "automancy:mud_to_water",
+    id: "mud_to_water",
     adjacent: None,
     instructions: (
         inputs: Some([
-            ("automancy:mud", 1),
+            ("mud", 1),
         ]),
         output: [
-            ("automancy:water", 16),
+            ("water", 16),
         ],
     ),
 )

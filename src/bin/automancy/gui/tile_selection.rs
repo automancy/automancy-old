@@ -2,9 +2,7 @@ use egui::scroll_area::ScrollBarVisibility;
 use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel, Ui};
 use futures::channel::mpsc;
 
-use automancy::tile_entity::TileModifier;
 use automancy_defs::cgmath::point3;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::{rad, Matrix4};
 use automancy_defs::rendering::InstanceData;
@@ -19,7 +17,6 @@ fn draw_tile_selection(
     setup: &GameSetup,
     gui_instances: &mut GuiInstances,
     ui: &mut Ui,
-    selected_tile_modifiers: &HashMap<Id, TileModifier>,
     mut selection_send: mpsc::Sender<Id>,
     game_data: &DataMap,
 ) {
@@ -54,18 +51,10 @@ fn draw_tile_selection(
 
             false
         })
-        .flat_map(|id| {
-            setup
-                .resource_man
-                .registry
-                .tile(*id)
-                .unwrap()
-                .models
-                .get(*selected_tile_modifiers.get(id).unwrap_or(&0) as usize)
-                .map(|id| setup.resource_man.get_model(*id))
-                .map(|model| (*id, model))
-        })
-        .for_each(|(id, model)| {
+        .for_each(|id| {
+            let tile = setup.resource_man.registry.tile(*id).unwrap();
+            let model = setup.resource_man.get_model(tile.model);
+
             let (ui_id, rect) = ui.allocate_space(vec2(size, size));
             let response = ui.interact(rect, ui_id, Sense::click());
 
@@ -82,7 +71,7 @@ fn draw_tile_selection(
                     .animate_value_with_time(ui.next_auto_id(), 0.2, 0.3)
             };
             if response.clicked() {
-                selection_send.try_send(id).unwrap();
+                selection_send.try_send(*id).unwrap();
             }
 
             let matrix = Matrix4::from_angle_x(rad(hover));
@@ -102,7 +91,6 @@ pub fn tile_selections(
     setup: &GameSetup,
     gui_instances: &mut GuiInstances,
     context: &Context,
-    selected_tile_modifiers: &HashMap<Id, TileModifier>,
     selection_send: mpsc::Sender<Id>,
     game_data: &DataMap,
 ) {
@@ -117,14 +105,7 @@ pub fn tile_selections(
                     ui.horizontal(|ui| {
                         ui.set_height(80.0);
 
-                        draw_tile_selection(
-                            setup,
-                            gui_instances,
-                            ui,
-                            selected_tile_modifiers,
-                            selection_send,
-                            game_data,
-                        );
+                        draw_tile_selection(setup, gui_instances, ui, selection_send, game_data);
                     });
                 });
         });

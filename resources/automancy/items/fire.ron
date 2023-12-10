@@ -1,4 +1,4 @@
 (
-    id: "automancy:fire",
-    model: "automancy:item/fire",
+    id: "fire",
+    model: "item/fire",
 )

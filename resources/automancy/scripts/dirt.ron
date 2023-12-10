@@ -1,13 +1,13 @@
 (
-    id: "automancy:dirt",
+    id: "dirt",
     adjacent: None,
     instructions: (
         inputs: Some([
-            ("automancy:gravel", 6),
-            ("automancy:chaos", 3),
+            ("gravel", 6),
+            ("chaos", 3),
         ]),
         output: [
-            ("automancy:dirt", 1),
+            ("dirt", 1),
         ],
     ),
 )

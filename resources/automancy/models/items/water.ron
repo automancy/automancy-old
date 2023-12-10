@@ -1,4 +1,4 @@
 (
-    id: "automancy:item/water",
+    id: "item/water",
     file: "water.glb",
 )

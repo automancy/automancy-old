@@ -25,7 +25,7 @@ use automancy_resources::ResourceManager;
 
 use crate::game;
 use crate::game::GameMsg;
-use crate::tile_entity::{TileEntityMsg, TileModifier};
+use crate::tile_entity::TileEntityMsg;
 
 pub const MAP_PATH: &str = "map";
 pub const MAP_EXT: &str = ".zst";
@@ -35,7 +35,7 @@ pub const MAIN_MENU: &str = ".main_menu";
 
 const MAP_BUFFER_SIZE: usize = 256 * 1024;
 
-pub type Tiles = HashMap<TileCoord, (Id, TileModifier)>;
+pub type Tiles = HashMap<TileCoord, Id>;
 pub type TileEntities = HashMap<TileCoord, ActorRef<TileEntityMsg>>;
 
 /// A map stores tiles and tile entities to disk.
@@ -61,7 +61,7 @@ pub struct MapInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SerdeTile(Id, TileModifier, DataMapRaw);
+pub struct SerdeTile(Id, DataMapRaw);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MapHeader {
@@ -191,14 +191,13 @@ impl Map {
         let mut tiles = HashMap::new();
         let mut tile_entities = HashMap::new();
 
-        for (coord, SerdeTile(id, tile_modifier, data)) in serde_tiles.into_iter() {
+        for (coord, SerdeTile(id, data)) in serde_tiles.into_iter() {
             if let Some(id) = id_reverse
                 .get(&id)
                 .and_then(|id| resource_man.interner.get(id.as_str()))
             {
                 let tile_entity =
-                    game::new_tile(resource_man.clone(), game.clone(), coord, id, tile_modifier)
-                        .await;
+                    game::new_tile(resource_man.clone(), game.clone(), coord, id).await;
                 let data = data.to_data(&resource_man.interner).into_inner();
 
                 for (key, value) in data {
@@ -207,7 +206,7 @@ impl Map {
                         .unwrap();
                 }
 
-                tiles.insert(coord, (id, tile_modifier));
+                tiles.insert(coord, id);
                 tile_entities.insert(coord, tile_entity);
             }
         }
@@ -245,7 +244,7 @@ impl Map {
         let mut tile_map = HashMap::new();
         let mut serde_tiles = Vec::new();
 
-        for (coord, (id, tile_modifier)) in self.tiles.iter() {
+        for (coord, id) in self.tiles.iter() {
             if let Some(tile_entity) = tile_entities.get(coord) {
                 if !tile_map.contains_key(id) {
                     tile_map.insert(*id, interner.resolve(*id).unwrap().to_string());
@@ -258,7 +257,7 @@ impl Map {
                     .unwrap();
                 let data = data.to_raw(interner);
 
-                serde_tiles.push((coord, SerdeTile(*id, *tile_modifier, data)));
+                serde_tiles.push((coord, SerdeTile(*id, data)));
             }
         }
 

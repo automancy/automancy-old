@@ -1,9 +1,7 @@
 (
-    id: "automancy:void",
-    function: Some("automancy:void"),
-    models: [
-        "automancy:void",
-    ],
+    id: "void",
+    function: Some("void"),
+    model: "void",
     data: ({
         "not_targeted": Bool(true),
         "default_tile": Bool(true),

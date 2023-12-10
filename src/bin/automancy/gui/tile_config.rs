@@ -385,7 +385,7 @@ pub fn tile_config(
         .unwrap()
         .unwrap();
 
-        if let Some(((id, _), tile_entity)) = tile.zip(tile_entity) {
+        if let Some((id, tile_entity)) = tile.zip(tile_entity) {
             let data = block_on(tile_entity.call(TileEntityMsg::GetData, None))
                 .unwrap()
                 .unwrap();

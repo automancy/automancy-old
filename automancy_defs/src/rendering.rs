@@ -3,10 +3,12 @@ use std::mem::size_of;
 use bytemuck::{Pod, Zeroable};
 use cgmath::{point3, vec3, EuclideanSpace, MetricSpace, SquareMatrix};
 use egui::NumExt;
+use egui_wgpu::wgpu::{
+    vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode,
+};
 use gltf::animation::Interpolation;
 use hexagon_tiles::fractional::FractionalHex;
 use hexagon_tiles::traits::HexRound;
-use egui_wgpu::wgpu::{vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode};
 
 use crate::coord::TileCoord;
 use crate::math;

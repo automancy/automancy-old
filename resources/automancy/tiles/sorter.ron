@@ -1,12 +1,10 @@
 (
-    id: "automancy:sorter",
-    function: Some("automancy:sorter"),
-    models: [
-        "automancy:sorter",
-    ],
+    id: "sorter",
+    function: Some("sorter"),
+    model: "sorter",
     data: ({
-        "item_type": Id("automancy:#any"),
-        "inactive_model": Id("automancy:transfer_tile_inactive"),
+        "item_type": Id("#any"),
+        "inactive_model": Id("transfer_tile_inactive"),
         "default_tile": Bool(true),
     }),
 )
