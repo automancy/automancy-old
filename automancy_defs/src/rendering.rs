@@ -246,6 +246,16 @@ pub enum AnimationUnit {
     Rotate(Quaternion),
 }
 
+impl AnimationUnit {
+    pub fn to_matrix4(&self) -> Matrix4 {
+        match self {
+            AnimationUnit::Translation(v) => Matrix4::from_translation(*v),
+            AnimationUnit::Scale(v) => Matrix4::from_nonuniform_scale(v.x, v.y, v.z),
+            AnimationUnit::Rotate(v) => Matrix4::from(*v),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Animation {
     pub target: usize,

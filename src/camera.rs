@@ -1,3 +1,4 @@
+use std::f64::consts::PI;
 use std::ops::Mul;
 
 use egui::NumExt;
@@ -6,7 +7,7 @@ use automancy_defs::cgmath::{point2, point3, vec2, InnerSpace};
 use automancy_defs::coord::{TileCoord, TileRange};
 use automancy_defs::hexagon_tiles::traits::HexRound;
 use automancy_defs::math;
-use automancy_defs::math::{DPoint2, DPoint3, DVector2, Double};
+use automancy_defs::math::{matrix, DMatrix4, DPoint2, DPoint3, DVector2, Double};
 
 use crate::input::InputHandler;
 
@@ -18,27 +19,29 @@ pub struct Camera {
 
     pub culling_range: TileRange,
     pub pointing_at: TileCoord,
+    matrix: DMatrix4,
 }
 
-fn fit_z(mut z: Double) -> Double {
-    if z > 2.0 {
-        if z <= 3.5 {
-            z = 2.0
+pub fn fit_z(mut z: Double) -> Double {
+    if z > 1.0 {
+        if z <= 1.5 {
+            z = 1.0
         } else {
-            z -= 1.5
+            z -= 0.5
         }
     }
 
-    7.5 + z.powi(2) * 1.5
+    2.5 + z * 4.0
 }
 
-fn fit_pos(DPoint3 { x, y, z }: DPoint3) -> DPoint3 {
+pub fn fit_pos(DPoint3 { x, y, z }: DPoint3) -> DPoint3 {
     point3(x, y, fit_z(z))
 }
 
 impl Camera {
     pub fn new((width, height): (Double, Double)) -> Self {
-        let pos = point3(0.0, 0.0, 3.0);
+        let pos = point3(0.0, 0.0, 2.0);
+        let matrix = matrix(fit_pos(pos), width / height, PI);
 
         Self {
             pos,
@@ -47,6 +50,7 @@ impl Camera {
 
             culling_range: math::get_culling_range((width, height), fit_pos(pos)),
             pointing_at: TileCoord::new(0, 0),
+            matrix,
         }
     }
 
@@ -54,12 +58,16 @@ impl Camera {
     pub fn get_pos(&self) -> DPoint3 {
         fit_pos(self.pos)
     }
+
+    pub fn get_matrix(&self) -> DMatrix4 {
+        self.matrix
+    }
 }
 
 impl Camera {
     /// Sets the position the camera is centered on.
     pub fn update_pointing_at(&mut self, main_pos: DPoint2, (width, height): (Double, Double)) {
-        let p = math::main_pos_to_hex((width, height), self.get_pos(), main_pos);
+        let p = math::main_pos_to_hex((width, height), main_pos, self.get_pos());
 
         self.pointing_at = p.round().into();
     }
@@ -97,11 +105,13 @@ impl Camera {
 
         if self.scroll_vel.abs() > 0.00005 {
             self.pos.z += self.scroll_vel * m;
-            self.pos.z = self.pos.z.clamp(1.0, 4.5);
+            //self.pos.z = self.pos.z.clamp(0.05, 4.0);
+            self.pos.z = self.pos.z.clamp(1.0, 4.0);
 
             self.scroll_vel -= self.scroll_vel * elapsed.mul(15.0).at_most(0.9);
         }
 
+        self.matrix = matrix(self.get_pos(), width / height, PI);
         self.culling_range = math::get_culling_range((width, height), self.get_pos());
     }
 

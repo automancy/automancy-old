@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::FRAC_PI_4;
 use std::time::Instant;
 
 use arboard::{Clipboard, ImageData};
@@ -29,9 +29,11 @@ use automancy_defs::coord::TileCoord;
 use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
-use automancy_defs::math::{deg, direction_to_angle, Double, Float, Matrix4, FAR};
+use automancy_defs::math::{
+    deg, direction_to_angle, z_far, z_near, Double, Float, Matrix4, Vector3, FAR,
+};
 use automancy_defs::rendering::{
-    lerp_coords_to_pixel, make_line, GameUBO, InstanceData, PostEffectsUBO,
+    lerp_coords_to_pixel, make_line, AnimationUnit, GameUBO, InstanceData, PostEffectsUBO,
 };
 use automancy_defs::{bytemuck, colors, math};
 use automancy_resources::data::Data;
@@ -79,7 +81,6 @@ impl Renderer {
         &mut self,
         setup: &GameSetup,
         gui: &mut Gui,
-        matrix: Matrix4,
         tile_tints: HashMap<TileCoord, Rgba>,
         mut extra_instances: Vec<(InstanceData, Id)>,
         mut overlay_instances: Vec<(InstanceData, Id)>,
@@ -96,6 +97,7 @@ impl Renderer {
         let culling_range = setup.camera.culling_range;
         let camera_pos = setup.camera.get_pos();
         let camera_pos_float = camera_pos.cast::<Float>().unwrap();
+        let mut animation_map = HashMap::new();
 
         let map_render_info = block_on(setup.game.call(
             |reply| GameMsg::RenderInfoRequest {
@@ -176,7 +178,7 @@ impl Renderer {
                             Matrix4::from_translation(vec3(
                                 point.x as Float,
                                 point.y as Float,
-                                FAR as Float,
+                                (FAR + 0.025) as Float,
                             )) * Matrix4::from_angle_z(theta)
                                 * Matrix4::from_scale(0.3),
                         )
@@ -233,6 +235,32 @@ impl Renderer {
                 instance, model, ..
             } in instances.into_values()
             {
+                if !animation_map.contains_key(&model) {
+                    let elapsed = Instant::now()
+                        .duration_since(setup.start_instant)
+                        .as_secs_f32();
+
+                    let anims = setup.resource_man.all_models[&model]
+                        .1
+                        .iter()
+                        .map(|anim| {
+                            let last = anim.inputs.last().unwrap();
+
+                            let index = anim
+                                .inputs
+                                .iter()
+                                .enumerate()
+                                .find(|(_, v)| (elapsed % last) <= **v)
+                                .map(|(idx, _)| idx)
+                                .unwrap_or(anim.inputs.len() - 1);
+
+                            (anim.target, anim.outputs[index])
+                        })
+                        .collect::<HashMap<_, _>>();
+
+                    animation_map.insert(model, anims);
+                }
+
                 map.entry(model)
                     .or_insert_with(|| Vec::with_capacity(32))
                     .push((instance.with_light_pos(camera_pos_float), model, ()))
@@ -266,12 +294,12 @@ impl Renderer {
         self.inner_render(
             setup,
             gui,
-            matrix,
             &game_instances,
             &overlay_instances,
             &in_world_item_instances,
             &gui_instances,
             &item_instances,
+            animation_map,
         )
     }
 
@@ -279,21 +307,27 @@ impl Renderer {
         &mut self,
         setup: &GameSetup,
         gui: &mut Gui,
-        matrix: Matrix4,
         game_instances: &[(InstanceData, Id, ())],
         overlay_instances: &[(InstanceData, Id, ())],
         in_world_item_instances: &[(InstanceData, Id, ())],
         gui_instances: &GuiInstances,
         item_instances: &GuiInstances,
+        animation_map: HashMap<Id, HashMap<usize, AnimationUnit>>,
     ) -> Result<(), SurfaceError> {
         let size = self.gpu.window.inner_size();
         let factor = gui.context.pixels_per_point();
+        let matrix = setup.camera.get_matrix().cast::<Float>().unwrap();
 
         let (game_instances, game_draws, game_draw_count) =
-            gpu::indirect_instance(&setup.resource_man, game_instances, true);
+            gpu::indirect_instance(&setup.resource_man, game_instances, true, &animation_map);
 
         let (in_world_item_instances, in_world_item_draws, in_world_item_draw_count) =
-            gpu::indirect_instance(&setup.resource_man, in_world_item_instances, true);
+            gpu::indirect_instance(
+                &setup.resource_man,
+                in_world_item_instances,
+                true,
+                &animation_map,
+            );
 
         let egui_out = gui.context.end_frame();
         let egui_primitives = gui
@@ -305,13 +339,13 @@ impl Renderer {
         };
 
         let (gui_instances, gui_draws, gui_draw_count) =
-            gpu::indirect_instance(&setup.resource_man, gui_instances, false);
+            gpu::indirect_instance(&setup.resource_man, gui_instances, false, &animation_map);
 
         let (item_instances, item_draws, item_draw_count) =
-            gpu::indirect_instance(&setup.resource_man, item_instances, false);
+            gpu::indirect_instance(&setup.resource_man, item_instances, false, &animation_map);
 
         let (overlay_instances, overlay_draws, overlay_draw_count) =
-            gpu::indirect_instance(&setup.resource_man, overlay_instances, true);
+            gpu::indirect_instance(&setup.resource_man, overlay_instances, true, &animation_map);
 
         let output = self.gpu.surface.get_current_texture()?;
 
@@ -682,11 +716,14 @@ impl Renderer {
                 self.gpu.queue.write_buffer(
                     &self.gpu.gui_resources.uniform_buffer,
                     0,
-                    bytemuck::cast_slice(&[GameUBO::new(math::matrix(
-                        point3(0.0, 0.0, 3.0),
-                        1.0,
-                        FRAC_PI_2,
-                    ))]),
+                    bytemuck::cast_slice(&[GameUBO::new(
+                        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far())
+                            * Matrix4::look_to_rh(
+                                point3(0.0, 0.0, 3.0),
+                                Vector3::unit_z(),
+                                Vector3::unit_y(),
+                            ),
+                    )]),
                 );
 
                 gui_pass.set_pipeline(&self.gpu.game_resources.pipeline);

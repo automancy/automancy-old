@@ -22,7 +22,9 @@ use winit::window::Window;
 use automancy_defs::bytemuck;
 use automancy_defs::hashbrown::{HashMap, HashSet};
 use automancy_defs::id::Id;
-use automancy_defs::rendering::{GameUBO, InstanceData, PostEffectsUBO, RawInstanceData, Vertex};
+use automancy_defs::rendering::{
+    AnimationUnit, GameUBO, InstanceData, PostEffectsUBO, RawInstanceData, Vertex,
+};
 use automancy_defs::slice_group_by::GroupBy;
 use automancy_macros::OptionGetter;
 use automancy_resources::ResourceManager;
@@ -42,6 +44,7 @@ pub const SCREENSHOT_FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
 pub fn compile_instances<T: Clone>(
     resource_man: &ResourceManager,
     instances: &[(InstanceData, Id, T)],
+    animation_map: &HashMap<Id, HashMap<usize, AnimationUnit>>,
 ) -> HashMap<Id, Vec<(usize, RawInstanceData, T)>> {
     let mut raw_instances = HashMap::new();
 
@@ -62,13 +65,21 @@ pub fn compile_instances<T: Clone>(
         let models = &resource_man.all_models[&id].0;
 
         for (instance, _, extra) in v.iter() {
-            models.values().for_each(|model| {
+            for model in models.values() {
+                let mut instance = *instance;
+                if let Some(anim) = animation_map
+                    .get(&id)
+                    .and_then(|anim| anim.get(&model.index))
+                {
+                    instance = instance.add_model_matrix(anim.to_matrix4());
+                }
+
                 raw_instances.entry(id).or_insert_with(Vec::new).push((
                     model.index,
-                    RawInstanceData::from(*instance),
+                    RawInstanceData::from(instance),
                     extra.clone(),
                 ));
-            });
+            }
         }
     });
 
@@ -83,12 +94,13 @@ pub fn indirect_instance<T: Clone>(
     resource_man: &ResourceManager,
     instances: &[(InstanceData, Id, T)],
     group: bool,
+    animation_map: &HashMap<Id, HashMap<usize, AnimationUnit>>,
 ) -> (
     Vec<RawInstanceData>,
     HashMap<Id, Vec<(DrawIndexedIndirect, T)>>,
     u32,
 ) {
-    let raw_instances = compile_instances(resource_man, instances);
+    let raw_instances = compile_instances(resource_man, instances, animation_map);
 
     let mut base_instance_counter = 0;
     let mut indirect_commands = HashMap::new();

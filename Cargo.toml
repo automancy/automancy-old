@@ -58,6 +58,7 @@ lazy_static = "1.4.0"
 anyhow = "1.0.72"
 thiserror = "1.0.43"
 enum-ordinalize = "4.1.0"
+ordered-float = "4.2.0"
 
 rhai = { version = "1.16.2", features = [
     "sync",

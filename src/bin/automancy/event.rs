@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::f32::consts::PI;
 use std::mem;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -135,10 +134,7 @@ fn render(
     let mut gui_instances = vec![];
     let mut item_instances = vec![];
 
-    let (width, height) = window::window_size_float(&renderer.gpu.window);
-    let aspect = width / height;
     let camera_pos_float = setup.camera.get_pos().cast().unwrap();
-    let matrix = math::matrix(camera_pos_float, aspect, PI);
 
     let (selection_send, mut selection_recv) = mpsc::channel(1);
 
@@ -308,7 +304,6 @@ fn render(
             match renderer.render(
                 setup,
                 gui,
-                matrix,
                 tile_tints,
                 extra_instances,
                 overlay_instances,

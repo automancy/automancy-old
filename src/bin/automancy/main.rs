@@ -9,7 +9,6 @@ use std::{env, panic};
 
 use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
-use egui::{ColorImage, TextureHandle, TextureOptions};
 use env_logger::Env;
 use futures::executor::block_on;
 use native_dialog::{MessageDialog, MessageType};
@@ -43,19 +42,13 @@ pub mod renderer;
 mod setup;
 
 /// Gets the game icon.
-fn get_icon_and_image(context: &egui::Context) -> (Icon, TextureHandle) {
+fn get_icon() -> Icon {
     let image = image::load_from_memory(LOGO).unwrap().to_rgba8();
     let width = image.width();
     let height = image.height();
 
     let samples = image.into_flat_samples().samples;
-    let texture = context.load_texture(
-        LOGO_PATH.to_string(),
-        ColorImage::from_rgba_premultiplied([width as usize, height as usize], &samples),
-        TextureOptions::LINEAR,
-    );
-
-    (Icon::from_rgba(samples, width, height).unwrap(), texture)
+    Icon::from_rgba(samples, width, height).unwrap()
 }
 
 fn write_msg<P: AsRef<Path>>(buffer: &mut impl Write, file_path: P) -> std::fmt::Result {
@@ -148,8 +141,9 @@ fn main() -> eyre::Result<()> {
     let event_loop = EventLoop::new()?;
 
     let egui_context: egui::Context = Default::default();
+    egui_extras::install_image_loaders(&egui_context);
 
-    let (icon, logo_image) = get_icon_and_image(&egui_context);
+    let icon = get_icon();
 
     let window = WindowBuilder::new()
         .with_title("automancy")
@@ -164,7 +158,7 @@ fn main() -> eyre::Result<()> {
     let runtime = Runtime::new().unwrap();
 
     let (mut setup, vertices, indices) = runtime
-        .block_on(GameSetup::setup(camera, logo_image))
+        .block_on(GameSetup::setup(camera))
         .expect("Critical failure in game setup");
 
     // --- render ---

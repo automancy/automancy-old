@@ -15,28 +15,23 @@ def main():
     tree = ET.parse(src)
     root = tree.getroot()
 
-    paths = [tuple([path.attrib['id'],
-                    dict(map(lambda x: tuple(x.split(':')), path.attrib['style'].split(';')))
-                    ])
-             for path in root.iter('{http://www.w3.org/2000/svg}path')]
-    total = float(len(paths))
-    ids = dict(map(lambda e: (e[1][0], e[0]), enumerate(paths)))
-    styles = dict(map(lambda e: (e[0], e[1]), paths))
+    attribs = [path.attrib for path in root.iter('{http://www.w3.org/2000/svg}path')]
+    total = float(len(attribs))
 
     bpy.ops.import_curve.svg(filepath=src)
 
     curves = list(filter(lambda o: o.type == 'CURVE', bpy.data.objects))
 
-    for obj in curves:
+    for [idx, obj] in enumerate(curves):
         mesh = bpy.data.meshes.new_from_object(obj)
 
         new_obj = bpy.data.objects.new(obj.name, mesh)
 
         new_obj.matrix_world = obj.matrix_world
-        new_obj.delta_location.z = (ids[obj.name] / total) / 16.0
-        alpha = styles[obj.name].get('fill-opacity')
-        if alpha:
-            new_obj.active_material.diffuse_color[3] = float(alpha)
+        new_obj.delta_location.z = (float(idx) / total) / 128.0
+        #alpha = styles[obj.name].get('fill-opacity')
+        #if alpha:
+        #    new_obj.active_material.diffuse_color[3] = float(alpha)
         bpy.context.collection.objects.link(new_obj)
         bpy.data.objects.remove(obj)
 

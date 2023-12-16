@@ -60,7 +60,7 @@ fn draw_tile_selection(
 
             response
                 .clone()
-                .on_hover_text(setup.resource_man.tile_name(&id));
+                .on_hover_text(setup.resource_man.tile_name(id));
             response.clone().on_hover_cursor(CursorIcon::Grab);
 
             let hover = if response.hovered() {

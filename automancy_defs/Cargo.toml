@@ -17,6 +17,8 @@ egui_extras = { workspace = true }
 
 winit = { workspace = true }
 
+ordered-float = { workspace = true }
+
 rhai = { workspace = true }
 
 
