@@ -413,7 +413,7 @@ pub fn options_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut E
                         OptionsMenuState::Graphics => {
                             ui.vertical(|ui| {
                                 ui.label(RichText::new("Graphics").text_style(TextStyle::Heading));
-                                ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
                                     ui.label(RichText::new("Max FPS: "));
                                     ui.add(
                                         Slider::new(
