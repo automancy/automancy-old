@@ -22,9 +22,8 @@ use winit::window::Window;
 use automancy_defs::bytemuck;
 use automancy_defs::hashbrown::{HashMap, HashSet};
 use automancy_defs::id::Id;
-use automancy_defs::rendering::{
-    AnimationUnit, GameUBO, InstanceData, PostEffectsUBO, RawInstanceData, Vertex,
-};
+use automancy_defs::math::Matrix4;
+use automancy_defs::rendering::{GameUBO, InstanceData, PostEffectsUBO, RawInstanceData, Vertex};
 use automancy_defs::slice_group_by::GroupBy;
 use automancy_macros::OptionGetter;
 use automancy_resources::ResourceManager;
@@ -44,7 +43,7 @@ pub const SCREENSHOT_FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
 pub fn compile_instances<T: Clone>(
     resource_man: &ResourceManager,
     instances: &[(InstanceData, Id, T)],
-    animation_map: &HashMap<Id, HashMap<usize, AnimationUnit>>,
+    animation_map: &HashMap<Id, HashMap<usize, Matrix4>>,
 ) -> HashMap<Id, Vec<(usize, RawInstanceData, T)>> {
     let mut raw_instances = HashMap::new();
 
@@ -67,12 +66,15 @@ pub fn compile_instances<T: Clone>(
         for (instance, _, extra) in v.iter() {
             for model in models.values() {
                 let mut instance = *instance;
+
+                let mut matrix = model.matrix;
                 if let Some(anim) = animation_map
                     .get(&id)
                     .and_then(|anim| anim.get(&model.index))
                 {
-                    instance = instance.add_model_matrix(anim.to_matrix4());
+                    matrix = matrix * anim;
                 }
+                instance = instance.add_model_matrix(matrix);
 
                 raw_instances.entry(id).or_insert_with(Vec::new).push((
                     model.index,
@@ -94,7 +96,7 @@ pub fn indirect_instance<T: Clone>(
     resource_man: &ResourceManager,
     instances: &[(InstanceData, Id, T)],
     group: bool,
-    animation_map: &HashMap<Id, HashMap<usize, AnimationUnit>>,
+    animation_map: &HashMap<Id, HashMap<usize, Matrix4>>,
 ) -> (
     Vec<RawInstanceData>,
     HashMap<Id, Vec<(DrawIndexedIndirect, T)>>,

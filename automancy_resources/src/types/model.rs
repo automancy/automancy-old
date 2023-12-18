@@ -4,12 +4,12 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use automancy_defs::cgmath::vec3;
 use automancy_defs::gltf::animation::util::ReadOutputs;
-use automancy_defs::gltf::json;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw};
-use automancy_defs::math::{Quaternion, Vector3};
-use automancy_defs::rendering::{Animation, AnimationUnit, Model, Vertex};
+use automancy_defs::math::{Matrix4, Quaternion};
+use automancy_defs::rendering::{Animation, Model, Vertex};
 use automancy_defs::{gltf, id, log};
 
 use crate::data::item::Item;
@@ -62,65 +62,6 @@ impl ResourceManager {
         let mut models = HashMap::new();
         let mut animations = vec![];
 
-        for animation in document.animations() {
-            for channel in animation.channels() {
-                let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
-
-                let target = channel.target().node().index();
-                let sampler = channel.sampler();
-                let interpolation = sampler.interpolation();
-                let mut read_inputs = vec![];
-                let mut read_outputs = vec![];
-
-                if let Some((inputs, outputs)) = reader.read_inputs().zip(reader.read_outputs()) {
-                    let min = sampler
-                        .output()
-                        .min()
-                        .as_ref()
-                        .and_then(json::Value::as_f64)
-                        .unwrap_or(0.0) as f32;
-                    let max = sampler
-                        .output()
-                        .max()
-                        .as_ref()
-                        .and_then(json::Value::as_f64)
-                        .unwrap_or(0.0) as f32;
-
-                    match outputs {
-                        ReadOutputs::Translations(outputs) => {
-                            for (input, output) in inputs.zip(outputs) {
-                                read_inputs.push(input);
-                                read_outputs
-                                    .push(AnimationUnit::Translation(Vector3::from(output)));
-                            }
-                        }
-                        ReadOutputs::Scales(outputs) => {
-                            for (input, output) in inputs.zip(outputs) {
-                                read_inputs.push(input);
-                                read_outputs.push(AnimationUnit::Scale(Vector3::from(output)));
-                            }
-                        }
-                        ReadOutputs::Rotations(outputs) => {
-                            for (input, output) in inputs.zip(outputs.into_f32()) {
-                                read_inputs.push(input);
-                                read_outputs.push(AnimationUnit::Rotate(Quaternion::from(output)));
-                            }
-                        }
-                        _ => {}
-                    }
-
-                    animations.push(Animation {
-                        target,
-                        min,
-                        max,
-                        interpolation,
-                        inputs: read_inputs,
-                        outputs: read_outputs,
-                    })
-                }
-            }
-        }
-
         for scene in document.scenes() {
             for node in scene.nodes() {
                 if let Some(mesh) = node.mesh() {
@@ -152,6 +93,8 @@ impl ResourceManager {
                         }
                     }
 
+                    let transform = node.transform();
+
                     models.insert(
                         mesh.index(),
                         Model {
@@ -159,8 +102,67 @@ impl ResourceManager {
                             indices: read_indices,
                             name,
                             index,
+                            matrix: Matrix4::from(transform.clone().matrix()),
+                            transform,
                         },
                     );
+                }
+            }
+        }
+
+        for animation in document.animations() {
+            for channel in animation.channels() {
+                let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+
+                let target = channel.target().node().index();
+                let sampler = channel.sampler();
+                let interpolation = sampler.interpolation();
+                let mut read_inputs = vec![];
+                let mut read_outputs = vec![];
+
+                if let Some((inputs, outputs)) = reader.read_inputs().zip(reader.read_outputs()) {
+                    match outputs {
+                        ReadOutputs::Translations(outputs) => {
+                            let transform = models[&target].transform.clone().decomposed();
+                            let [ox, oy, oz] = transform.0;
+                            let [sx, sy, sz] = transform.2;
+
+                            for (input, [x, y, z]) in inputs.zip(outputs) {
+                                read_inputs.push(input);
+                                read_outputs.push(Matrix4::from_translation(vec3(
+                                    (ox - x) / sx,
+                                    (oy - y) / sy,
+                                    (oz - z) / sz,
+                                )));
+                            }
+                        }
+                        ReadOutputs::Scales(outputs) => {
+                            let [sx, sy, sz] = models[&target].transform.clone().decomposed().2;
+
+                            for (input, [x, y, z]) in inputs.zip(outputs) {
+                                read_inputs.push(input);
+                                read_outputs.push(Matrix4::from_nonuniform_scale(
+                                    x / sx,
+                                    y / sy,
+                                    z / sz,
+                                ));
+                            }
+                        }
+                        ReadOutputs::Rotations(outputs) => {
+                            for (input, output) in inputs.zip(outputs.into_f32()) {
+                                read_inputs.push(input);
+                                read_outputs.push(Quaternion::from(output).into());
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    animations.push(Animation {
+                        target,
+                        interpolation,
+                        inputs: read_inputs,
+                        outputs: read_outputs,
+                    })
                 }
             }
         }

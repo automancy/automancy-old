@@ -123,7 +123,7 @@ fn main() {
     }
     for handle in model_handles {
         if let Err(e) = handle.join() {
-            panic!("Issue with svg to blend: {e:?}");
+            panic!("Issue with blend to gltf: {e:?}");
         }
     }
 }

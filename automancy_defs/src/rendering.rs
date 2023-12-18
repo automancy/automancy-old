@@ -7,14 +7,13 @@ use egui_wgpu::wgpu::{
     vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode,
 };
 use gltf::animation::Interpolation;
+use gltf::scene::Transform;
 use hexagon_tiles::fractional::FractionalHex;
 use hexagon_tiles::traits::HexRound;
 
 use crate::coord::TileCoord;
 use crate::math;
-use crate::math::{
-    direction_to_angle, DPoint2, Double, Float, Matrix4, Point3, Quaternion, Vector3,
-};
+use crate::math::{direction_to_angle, DPoint2, Double, Float, Matrix4, Point3, Vector3};
 
 pub fn lerp_coords_to_pixel(a: TileCoord, b: TileCoord, t: Double) -> DPoint2 {
     let a = FractionalHex::new(a.q() as Double, a.r() as Double);
@@ -73,7 +72,7 @@ pub struct InstanceData {
     pub color_offset: VertexColor,
     pub alpha: Float,
     pub light_pos: Point3,
-    pub model_matrix: Matrix4,
+    pub matrix: Matrix4,
 }
 
 impl Default for InstanceData {
@@ -82,7 +81,7 @@ impl Default for InstanceData {
             color_offset: [0.0, 0.0, 0.0, 0.0],
             alpha: 1.0,
             light_pos: point3(0.0, 0.0, 8.0),
-            model_matrix: Matrix4::identity(),
+            matrix: Matrix4::identity(),
         }
     }
 }
@@ -90,7 +89,7 @@ impl Default for InstanceData {
 impl InstanceData {
     #[inline]
     pub fn add_model_matrix(mut self, model_matrix: Matrix4) -> Self {
-        self.model_matrix = self.model_matrix * model_matrix;
+        self.matrix = self.matrix * model_matrix;
 
         self
     }
@@ -104,21 +103,21 @@ impl InstanceData {
 
     #[inline]
     pub fn add_translation(mut self, translation: Vector3) -> Self {
-        self.model_matrix = self.model_matrix * Matrix4::from_translation(translation);
+        self.matrix = self.matrix * Matrix4::from_translation(translation);
 
         self
     }
 
     #[inline]
     pub fn add_scale(mut self, scale: Float) -> Self {
-        self.model_matrix = self.model_matrix * Matrix4::from_scale(scale);
+        self.matrix = self.matrix * Matrix4::from_scale(scale);
 
         self
     }
 
     #[inline]
     pub fn with_model_matrix(mut self, model_matrix: Matrix4) -> Self {
-        self.model_matrix = model_matrix;
+        self.matrix = model_matrix;
 
         self
     }
@@ -151,7 +150,7 @@ pub struct RawInstanceData {
     color_offset: VertexColor,
     alpha: Float,
     light_pos: VertexPos,
-    model_matrix: RawMat4,
+    matrix: RawMat4,
 }
 
 impl From<InstanceData> for RawInstanceData {
@@ -160,7 +159,7 @@ impl From<InstanceData> for RawInstanceData {
             color_offset: value.color_offset,
             alpha: value.alpha,
             light_pos: [value.light_pos.x, value.light_pos.y, value.light_pos.z],
-            model_matrix: value.model_matrix.into(),
+            matrix: value.matrix.into(),
         }
     }
 }
@@ -231,37 +230,20 @@ pub struct PostEffectsUBO {
 
 // model
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Model {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
     pub name: String,
     pub index: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum AnimationUnit {
-    Translation(Vector3),
-    Scale(Vector3),
-    Rotate(Quaternion),
-}
-
-impl AnimationUnit {
-    pub fn to_matrix4(&self) -> Matrix4 {
-        match self {
-            AnimationUnit::Translation(v) => Matrix4::from_translation(*v),
-            AnimationUnit::Scale(v) => Matrix4::from_nonuniform_scale(v.x, v.y, v.z),
-            AnimationUnit::Rotate(v) => Matrix4::from(*v),
-        }
-    }
+    pub matrix: Matrix4,
+    pub transform: Transform,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Animation {
     pub target: usize,
-    pub min: Float,
-    pub max: Float,
     pub interpolation: Interpolation,
     pub inputs: Vec<Float>,
-    pub outputs: Vec<AnimationUnit>,
+    pub outputs: Vec<Matrix4>,
 }

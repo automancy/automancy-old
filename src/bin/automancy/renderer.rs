@@ -24,7 +24,7 @@ use automancy::gpu;
 use automancy::gpu::{Gpu, NORMAL_CLEAR, SCREENSHOT_FORMAT};
 use automancy::input::KeyActions;
 use automancy::options::Options;
-use automancy_defs::cgmath::{point3, vec3, EuclideanSpace};
+use automancy_defs::cgmath::{point3, vec3, EuclideanSpace, SquareMatrix};
 use automancy_defs::coord::TileCoord;
 use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::HashMap;
@@ -33,8 +33,9 @@ use automancy_defs::math::{
     deg, direction_to_angle, z_far, z_near, Double, Float, Matrix4, Vector3, FAR,
 };
 use automancy_defs::rendering::{
-    lerp_coords_to_pixel, make_line, AnimationUnit, GameUBO, InstanceData, PostEffectsUBO,
+    lerp_coords_to_pixel, make_line, GameUBO, InstanceData, PostEffectsUBO,
 };
+use automancy_defs::slice_group_by::GroupBy;
 use automancy_defs::{bytemuck, colors, math};
 use automancy_resources::data::Data;
 
@@ -117,7 +118,7 @@ impl Renderer {
                 .and_then(|data| data.get(&setup.resource_man.registry.data_ids.target))
                 .and_then(get_angle_from_direction)
             {
-                let m = &mut instance.instance.model_matrix;
+                let m = &mut instance.instance.matrix;
 
                 *m = *m * Matrix4::from_angle_z(deg(theta))
             } else if let Some(inactive) = setup
@@ -143,10 +144,7 @@ impl Renderer {
                     InstanceData {
                         color_offset: colors::RED.to_array(),
                         light_pos: camera_pos_float,
-                        model_matrix: make_line(
-                            math::hex_to_pixel(*coord),
-                            math::hex_to_pixel(*link),
-                        ),
+                        matrix: make_line(math::hex_to_pixel(*coord), math::hex_to_pixel(*link)),
                         ..Default::default()
                     },
                     setup.resource_man.registry.model_ids.cube1x1,
@@ -256,6 +254,15 @@ impl Renderer {
 
                             (anim.target, anim.outputs[index])
                         })
+                        .collect::<Vec<_>>();
+                    let anims = anims
+                        .binary_group_by_key(|v| v.0)
+                        .map(|v| {
+                            (
+                                v[0].0,
+                                v.iter().fold(Matrix4::identity(), |acc, v| acc * v.1),
+                            )
+                        })
                         .collect::<HashMap<_, _>>();
 
                     animation_map.insert(model, anims);
@@ -312,7 +319,7 @@ impl Renderer {
         in_world_item_instances: &[(InstanceData, Id, ())],
         gui_instances: &GuiInstances,
         item_instances: &GuiInstances,
-        animation_map: HashMap<Id, HashMap<usize, AnimationUnit>>,
+        animation_map: HashMap<Id, HashMap<usize, Matrix4>>,
     ) -> Result<(), SurfaceError> {
         let size = self.gpu.window.inner_size();
         let factor = gui.context.pixels_per_point();

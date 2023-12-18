@@ -210,7 +210,7 @@ fn render(
                                     InstanceData {
                                         alpha: 0.6,
                                         light_pos: camera_pos_float,
-                                        model_matrix: Matrix4::from_translation(vec3(
+                                        matrix: Matrix4::from_translation(vec3(
                                             cursor_pos.x as Float,
                                             cursor_pos.y as Float,
                                             FAR as Float,
@@ -227,7 +227,7 @@ fn render(
                                 InstanceData {
                                     color_offset: colors::RED.to_array(),
                                     light_pos: camera_pos_float,
-                                    model_matrix: make_line(math::hex_to_pixel(*coord), cursor_pos),
+                                    matrix: make_line(math::hex_to_pixel(*coord), cursor_pos),
                                     ..Default::default()
                                 },
                                 setup.resource_man.registry.model_ids.cube1x1,
@@ -281,7 +281,7 @@ fn render(
                         InstanceData {
                             color_offset: colors::LIGHT_BLUE.to_array(),
                             light_pos: camera_pos_float,
-                            model_matrix: make_line(
+                            matrix: make_line(
                                 math::hex_to_pixel(*start),
                                 math::hex_to_pixel(*setup.camera.pointing_at),
                             ),
