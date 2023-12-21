@@ -75,6 +75,47 @@ fn get_angle_from_direction(target: &Data) -> Option<Float> {
     }
 }
 
+fn try_add_animation(
+    setup: &GameSetup,
+    model: Id,
+    animation_map: &mut HashMap<Id, HashMap<usize, Matrix4>>,
+) {
+    if !animation_map.contains_key(&model) {
+        let elapsed = Instant::now()
+            .duration_since(setup.start_instant)
+            .as_secs_f32();
+
+        let anims = setup.resource_man.all_models[&model]
+            .1
+            .iter()
+            .map(|anim| {
+                let last = anim.inputs.last().unwrap();
+
+                let index = anim
+                    .inputs
+                    .iter()
+                    .enumerate()
+                    .find(|(_, v)| (elapsed % last) <= **v)
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(anim.inputs.len() - 1);
+
+                (anim.target, anim.outputs[index])
+            })
+            .collect::<Vec<_>>();
+        let anims = anims
+            .binary_group_by_key(|v| v.0)
+            .map(|v| {
+                (
+                    v[0].0,
+                    v.iter().fold(Matrix4::identity(), |acc, v| acc * v.1),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        animation_map.insert(model, anims);
+    }
+}
+
 pub type GuiInstances = Vec<(InstanceData, Id, (Option<Rect>, Option<Rect>))>;
 
 impl Renderer {
@@ -233,40 +274,7 @@ impl Renderer {
                 instance, model, ..
             } in instances.into_values()
             {
-                if !animation_map.contains_key(&model) {
-                    let elapsed = Instant::now()
-                        .duration_since(setup.start_instant)
-                        .as_secs_f32();
-
-                    let anims = setup.resource_man.all_models[&model]
-                        .1
-                        .iter()
-                        .map(|anim| {
-                            let last = anim.inputs.last().unwrap();
-
-                            let index = anim
-                                .inputs
-                                .iter()
-                                .enumerate()
-                                .find(|(_, v)| (elapsed % last) <= **v)
-                                .map(|(idx, _)| idx)
-                                .unwrap_or(anim.inputs.len() - 1);
-
-                            (anim.target, anim.outputs[index])
-                        })
-                        .collect::<Vec<_>>();
-                    let anims = anims
-                        .binary_group_by_key(|v| v.0)
-                        .map(|v| {
-                            (
-                                v[0].0,
-                                v.iter().fold(Matrix4::identity(), |acc, v| acc * v.1),
-                            )
-                        })
-                        .collect::<HashMap<_, _>>();
-
-                    animation_map.insert(model, anims);
-                }
+                try_add_animation(setup, model, &mut animation_map);
 
                 map.entry(model)
                     .or_insert_with(|| Vec::with_capacity(32))
@@ -275,6 +283,26 @@ impl Renderer {
 
             map.into_values().flatten().collect::<Vec<_>>()
         };
+
+        for (_, model) in &extra_instances {
+            try_add_animation(setup, *model, &mut animation_map);
+        }
+
+        for (_, model) in &overlay_instances {
+            try_add_animation(setup, *model, &mut animation_map);
+        }
+
+        for (_, model) in &in_world_item_instances {
+            try_add_animation(setup, *model, &mut animation_map);
+        }
+
+        for (_, model, _) in &gui_instances {
+            try_add_animation(setup, *model, &mut animation_map);
+        }
+
+        for (_, model, _) in &item_instances {
+            try_add_animation(setup, *model, &mut animation_map);
+        }
 
         extra_instances.sort_by_key(|v| v.1);
         let mut extra_instances = extra_instances
