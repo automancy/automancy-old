@@ -188,6 +188,7 @@ fn takeable_item(
                 None,
                 ItemStack { item, amount },
                 MEDIUM_ITEM_ICON_SIZE,
+                true,
             );
 
             if response.clicked() {
@@ -256,15 +257,20 @@ fn config_item(
             None,
             stack,
             SMALL_ITEM_ICON_SIZE,
+            true,
         );
     }
     loop_store.gui_state.text_field.searchable_id(
         ui,
+        item_instances,
         &setup.resource_man,
         items.as_slice(),
         &mut new_item,
         TextField::Filter,
+        setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.hint_search_item]
+            .to_string(),
         &ResourceManager::item_name,
+        &ResourceManager::script_outputs,
     );
 
     if new_item != current_item {
@@ -317,6 +323,7 @@ fn config_script(
                         Some(" + "),
                         *input,
                         SMALL_ITEM_ICON_SIZE,
+                        true,
                     );
                 }
             }
@@ -329,6 +336,7 @@ fn config_script(
                     Some("=> "),
                     *output,
                     SMALL_ITEM_ICON_SIZE,
+                    true,
                 );
             }
         }
@@ -336,11 +344,15 @@ fn config_script(
 
     loop_store.gui_state.text_field.searchable_id(
         ui,
+        item_instances,
         &setup.resource_man,
         scripts.as_slice(),
         &mut new_script,
         TextField::Filter,
+        setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.hint_search_script]
+            .to_string(),
         &ResourceManager::script_name,
+        &ResourceManager::script_outputs,
     );
 
     if new_script != current_script {

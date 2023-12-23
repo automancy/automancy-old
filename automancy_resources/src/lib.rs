@@ -309,4 +309,56 @@ impl ResourceManager {
             all_models: Default::default(),
         }
     }
+
+    pub fn item_name(&self, id: &Id) -> &str {
+        match self.translates.items.get(id) {
+            Some(name) => name,
+            None => &self.translates.unnamed,
+        }
+    }
+
+    pub fn try_item_name(&self, id: Option<&Id>) -> &str {
+        if let Some(id) = id {
+            self.item_name(id)
+        } else {
+            &self.translates.none
+        }
+    }
+
+    pub fn script_name(&self, id: &Id) -> &str {
+        match self.translates.scripts.get(id) {
+            Some(name) => name,
+            None => &self.translates.unnamed,
+        }
+    }
+
+    pub fn try_script_name(&self, id: Option<&Id>) -> &str {
+        if let Some(id) = id {
+            self.item_name(id)
+        } else {
+            &self.translates.none
+        }
+    }
+
+    pub fn tile_name(&self, id: &Id) -> &str {
+        match self.translates.tiles.get(id) {
+            Some(name) => name,
+            None => &self.translates.unnamed,
+        }
+    }
+
+    pub fn try_tile_name(&self, id: Option<&Id>) -> &str {
+        if let Some(id) = id {
+            self.tile_name(id)
+        } else {
+            &self.translates.none
+        }
+    }
+
+    pub fn script_outputs(&self, id: &Id) -> Option<&[ItemStack]> {
+        self.registry
+            .scripts
+            .get(id)
+            .map(|script| script.instructions.outputs.as_slice())
+    }
 }

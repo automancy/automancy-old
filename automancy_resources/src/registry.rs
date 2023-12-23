@@ -104,6 +104,9 @@ pub struct GuiIds {
     pub invalid_name: Id,
     pub options: Id,
 
+    pub hint_search_script: Id,
+    pub hint_search_item: Id,
+
     pub lbl_amount: Id,
     pub lbl_link_destination: Id,
     pub lbl_maps_loaded: Id,

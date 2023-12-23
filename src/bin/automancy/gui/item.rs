@@ -19,6 +19,7 @@ pub fn draw_item(
     prefix: Option<&'static str>,
     stack: ItemStack,
     size: Float,
+    add_label: bool,
 ) -> (Rect, Response) {
     ui.horizontal(|ui| {
         ui.set_height(size);
@@ -31,14 +32,20 @@ pub fn draw_item(
 
         let (rect, icon_response) = ui.allocate_exact_size(vec2(size, size), Sense::click());
 
-        let label_response = if stack.amount > 0 {
-            ui.label(format!(
-                "{} ({})",
-                resource_man.item_name(&stack.item.id),
-                stack.amount
-            ))
+        let response = if add_label {
+            let label_response = if stack.amount > 0 {
+                ui.label(format!(
+                    "{} ({})",
+                    resource_man.item_name(&stack.item.id),
+                    stack.amount
+                ))
+            } else {
+                ui.label(resource_man.item_name(&stack.item.id).to_string())
+            };
+
+            icon_response.union(label_response)
         } else {
-            ui.label(resource_man.item_name(&stack.item.id).to_string())
+            icon_response
         };
 
         item_instances.push((
@@ -47,7 +54,7 @@ pub fn draw_item(
             (Some(rect), None),
         ));
 
-        (rect, icon_response.union(label_response))
+        (rect, response)
     })
     .inner
 }

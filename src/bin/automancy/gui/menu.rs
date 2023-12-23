@@ -233,9 +233,7 @@ pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut Event
                         ui.style_mut().override_text_style = Some(TextStyle::Heading);
                         ui.set_width(300.0);
 
-                        if Some(map_name)
-                            == loop_store.gui_state.text_field.map_name_renaming.as_ref()
-                        {
+                        if map_name == loop_store.gui_state.text_field.get(TextField::MapRenaming) {
                             if ui
                                 .add(
                                     TextEdit::multiline(
@@ -272,13 +270,10 @@ pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut Event
                                     loop_store.gui_state.popup = PopupState::InvalidName;
                                 }
 
-                                loop_store.gui_state.text_field.map_name_renaming = None;
                                 *loop_store.gui_state.text_field.get(TextField::MapRenaming) =
-                                    "".to_string();
+                                    Default::default();
                             }
                         } else if ui.selectable_label(false, map_name.as_str()).clicked() {
-                            loop_store.gui_state.text_field.map_name_renaming =
-                                Some(map_name.clone());
                             *loop_store.gui_state.text_field.get(TextField::MapRenaming) =
                                 map_name.clone();
                         }

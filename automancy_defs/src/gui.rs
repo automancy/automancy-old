@@ -15,6 +15,7 @@ pub struct Gui {
     pub state: State,
     pub fonts: FontDefinitions,
 }
+
 pub fn set_font(font: SharedStr, gui: &mut Gui) {
     gui.fonts
         .families

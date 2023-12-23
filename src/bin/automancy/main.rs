@@ -9,6 +9,7 @@ use std::{env, panic};
 
 use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
+use egui::{FontData, FontDefinitions};
 use env_logger::Env;
 use futures::executor::block_on;
 use native_dialog::{MessageDialog, MessageType};
@@ -29,7 +30,6 @@ use automancy_defs::{log, window};
 use automancy_resources::kira::tween::Tween;
 
 use crate::event::{on_event, EventLoopStorage};
-use crate::gui::init_fonts;
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
 
@@ -179,7 +179,12 @@ fn main() -> eyre::Result<()> {
         egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, None, 1),
         &gpu.window,
     );
-    init_fonts(setup.resource_man.clone(), &mut gui);
+    gui.fonts = FontDefinitions::default();
+    for (name, font) in setup.resource_man.fonts.iter() {
+        gui.fonts
+            .font_data
+            .insert(name.to_string(), FontData::from_owned(font.data.clone()));
+    }
     set_font(setup.options.gui.font.to_shared_str(), &mut gui);
     log::info!("Gui set up.");
 

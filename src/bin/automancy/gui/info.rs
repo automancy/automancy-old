@@ -64,6 +64,7 @@ pub fn info(setup: &GameSetup, item_instances: &mut GuiInstances, context: &Cont
                         None,
                         ItemStack { item, amount },
                         SMALL_ITEM_ICON_SIZE,
+                        true,
                     );
                 }
             }

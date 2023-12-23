@@ -107,6 +107,7 @@ pub fn player(
                         None,
                         ItemStack { item, amount },
                         MEDIUM_ITEM_ICON_SIZE,
+                        true,
                     );
 
                     take_item_animation(item, dst_rect, setup, loop_store, item_instances);

@@ -1,12 +1,13 @@
 use egui::epaint::Shadow;
-use egui::{FontData, FontDefinitions, Frame, Margin, Rounding, ScrollArea, Ui};
+use egui::{Frame, Margin, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText};
 use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
-use std::sync::Arc;
 
+use crate::gui::item::{draw_item, SMALL_ITEM_ICON_SIZE};
+use crate::renderer::GuiInstances;
 use automancy_defs::colors;
-use automancy_defs::gui::Gui;
 use automancy_defs::id::Id;
+use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
 
 #[cfg(debug_assertions)]
@@ -130,7 +131,6 @@ pub enum TextField {
 
 pub struct TextFieldState {
     pub fuse: Fuse,
-    pub map_name_renaming: Option<String>,
     fields: EnumMap<TextField, String>,
 }
 
@@ -138,11 +138,10 @@ impl Default for TextFieldState {
     fn default() -> Self {
         TextFieldState {
             fuse: Fuse::default(),
-            map_name_renaming: None,
             fields: enum_map! {
-                TextField::Filter => String::new(),
-                TextField::MapName => String::new(),
-                TextField::MapRenaming => String::new()
+                TextField::Filter => Default::default(),
+                TextField::MapName => Default::default(),
+                TextField::MapRenaming => Default::default()
             },
         }
     }
@@ -152,17 +151,23 @@ impl TextFieldState {
     pub fn get(&mut self, field: TextField) -> &mut String {
         &mut self.fields[field]
     }
+
     /// Draws a search bar.
     pub fn searchable_id<'a>(
         &mut self,
         ui: &mut Ui,
+        item_instances: &mut GuiInstances,
         resource_man: &'a ResourceManager,
         ids: &[Id],
         new_id: &mut Option<Id>,
         field: TextField,
-        name: &'static impl Fn(&'a ResourceManager, &Id) -> &'a str,
+        hint_text: impl Into<WidgetText>,
+        to_string: &'static impl Fn(&'a ResourceManager, &Id) -> &'a str,
+        item: &'static impl Fn(&'a ResourceManager, &Id) -> Option<&'a [ItemStack]>,
     ) {
-        ui.text_edit_singleline(self.get(field));
+        TextEdit::singleline(self.get(field))
+            .hint_text(hint_text)
+            .ui(ui);
 
         ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -174,7 +179,7 @@ impl TextFieldState {
                     .flat_map(|id| {
                         let result = self
                             .fuse
-                            .search_text_in_string(&text, name(resource_man, id));
+                            .search_text_in_string(&text, to_string(resource_man, id));
                         let score = result.map(|v| v.score);
 
                         if score.unwrap_or(0.0) > 0.4 {
@@ -192,18 +197,30 @@ impl TextFieldState {
             };
 
             for id in ids {
-                ui.radio_value(new_id, Some(id), name(resource_man, &id));
+                ui.horizontal(|ui| {
+                    ui.style_mut().spacing.interact_size.y = SMALL_ITEM_ICON_SIZE;
+
+                    ui.radio_value(
+                        new_id,
+                        Some(id),
+                        format!("{}:", to_string(resource_man, &id)),
+                    );
+
+                    if let Some(stacks) = item(resource_man, &id) {
+                        for stack in stacks {
+                            draw_item(
+                                resource_man,
+                                ui,
+                                item_instances,
+                                None,
+                                *stack,
+                                SMALL_ITEM_ICON_SIZE,
+                                false,
+                            );
+                        }
+                    }
+                });
             }
         });
-    }
-}
-
-// TODO i should really find a better place for this. oh well!
-pub fn init_fonts(resource_man: Arc<ResourceManager>, gui: &mut Gui) {
-    gui.fonts = FontDefinitions::default();
-    for (name, font) in resource_man.fonts.iter() {
-        gui.fonts
-            .font_data
-            .insert(name.to_string(), FontData::from_owned(font.data.to_owned()));
     }
 }
