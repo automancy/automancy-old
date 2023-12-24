@@ -13,3 +13,5 @@ options.ron
 *.glb
 *.blend1
 *.cap
+
+**/items/**/*.blend

@@ -15,12 +15,12 @@ ron = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 ordered-float = { workspace = true }
+walkdir = { workspace = true }
 
 rhai = { workspace = true }
 
 
 
-walkdir = "2.3.3"
 chrono = "0.4.24"
 kira = "0.8.3"
 ttf-parser = "0.20.0"

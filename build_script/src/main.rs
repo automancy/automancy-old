@@ -1,3 +1,4 @@
+use std::env::current_dir;
 use std::ffi::OsStr;
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
@@ -42,6 +43,11 @@ fn file_check(path: &Path, out_path: &Path) -> bool {
 }
 
 fn main() {
+    println!(
+        "Build script running in {:?}",
+        current_dir().unwrap().canonicalize().unwrap()
+    );
+
     if Command::new("blender").arg("--help").output().is_err() {
         println!("\n\n==============");
         println!("Failed to find blender command: please add blender to your PATH.");
@@ -76,9 +82,9 @@ fn main() {
                     .expect("blender processing couldn't start")
                     .wait_with_output()
                     .unwrap();
+                println!("{}", str::from_utf8(&output.stdout).unwrap());
 
                 if !output.status.success() {
-                    println!("{}", str::from_utf8(&output.stdout).unwrap());
                     panic!("Process bad status code: {}", output.status)
                 }
             }));
@@ -114,13 +120,15 @@ fn main() {
                     .expect("blender processing couldn't start")
                     .wait_with_output()
                     .unwrap();
+                println!("{}", str::from_utf8(&output.stdout).unwrap());
+
                 if !output.status.success() {
-                    println!("{}", str::from_utf8(&output.stdout).unwrap());
                     panic!("Process bad status code: {}", output.status)
                 }
             }));
         }
     }
+
     for handle in model_handles {
         if let Err(e) = handle.join() {
             panic!("Issue with blend to gltf: {e:?}");

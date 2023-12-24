@@ -24,6 +24,12 @@ Links:
 
 ## Development Notes
 
+***Run `run.sh` to run the game.***
+
+***Alternatively, run `cargo run -p build_script` before running the game.***
+
+***There should be IntelliJ configurations for running the game. Simply run config `Run`.***
+
 ### Designers
 
 For SVG files, in order for them to be correctly converted to Blender files, the file needs to fit the following
