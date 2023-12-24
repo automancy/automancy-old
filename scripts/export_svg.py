@@ -16,19 +16,20 @@ def main():
     root = tree.getroot()
 
     attribs = [path.attrib for path in root.iter('{http://www.w3.org/2000/svg}path')]
+    ids = dict(map(lambda e: (e[1], e[0]), enumerate(map(lambda a: a['id'], attribs))))
     total = float(len(attribs))
 
     bpy.ops.import_curve.svg(filepath=src)
 
     curves = list(filter(lambda o: o.type == 'CURVE', bpy.data.objects))
 
-    for [idx, obj] in enumerate(curves):
+    for obj in curves:
         mesh = bpy.data.meshes.new_from_object(obj)
 
         new_obj = bpy.data.objects.new(obj.name, mesh)
 
         new_obj.matrix_world = obj.matrix_world
-        new_obj.delta_location.z = (float(idx) / total) / 128.0
+        new_obj.delta_location.z = (ids[obj.name] / total) / 128.0
         #alpha = styles[obj.name].get('fill-opacity')
         #if alpha:
         #    new_obj.active_material.diffuse_color[3] = float(alpha)
