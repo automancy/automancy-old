@@ -49,14 +49,14 @@ fn vs_main(
 
 const KERNEL_X = mat3x3<f32>(
     vec3<f32>( 1.0,  0.0, -1.0),
-    vec3<f32>( 2.0,  0.0, -2.0),
+    vec3<f32>( 1.0,  0.0, -1.0),
     vec3<f32>( 1.0,  0.0, -1.0),
 );
 
 const KERNEL_Y = mat3x3<f32>(
-    vec3<f32>( 1.0,  2.0,  1.0),
+    vec3<f32>( 1.0,  1.0,  1.0),
     vec3<f32>( 0.0,  0.0,  0.0),
-    vec3<f32>(-1.0, -2.0, -1.0),
+    vec3<f32>(-1.0, -1.0, -1.0),
 );
 
 const LUMA = vec3<f32>(0.299, 0.587, 0.114);
@@ -67,17 +67,12 @@ fn color_edge(uv: vec2<f32>) -> f32 {
     let c  = dot(textureSample(frame_texture, frame_sampler, uv).rgb, LUMA);
     let n  = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>( 0.0,  1.0)).rgb, LUMA);
     let e  = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>( 1.0,  0.0)).rgb, LUMA);
-    let s  = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>( 0.0, -1.0)).rgb, LUMA);
-    let w  = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>(-1.0,  0.0)).rgb, LUMA);
     let ne = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>( 1.0,  1.0)).rgb, LUMA);
-    let nw = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>(-1.0,  1.0)).rgb, LUMA);
-    let se = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>( 1.0, -1.0)).rgb, LUMA);
-    let sw = dot(textureSample(frame_texture, frame_sampler, uv + texel_size * vec2<f32>(-1.0, -1.0)).rgb, LUMA);
 
     let m = mat3x3(
-        vec3(sw,  s, se),
-        vec3( w,  c,  e),
-        vec3(nw,  n, ne),
+        vec3( c,  c,  c),
+        vec3( c,  c,  e),
+        vec3( c,  n, ne),
     );
 
     let gx = dot(KERNEL_X[0], m[0]) + dot(KERNEL_X[1], m[1]) + dot(KERNEL_X[2], m[2]);
@@ -85,7 +80,7 @@ fn color_edge(uv: vec2<f32>) -> f32 {
 
     let g = length(vec2(gx, gy));
 
-    return sqrt(g);
+    return g;
 }
 
 fn depth_edge(uv: vec2<f32>) -> f32 {
@@ -94,11 +89,12 @@ fn depth_edge(uv: vec2<f32>) -> f32 {
     let c  = textureSample(depth_texture, depth_sampler, uv).r;
     let n  = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 0.0,  1.0)).r;
     let e  = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 1.0,  0.0)).r;
+    let ne = textureSample(depth_texture, depth_sampler, uv + texel_size * vec2<f32>( 1.0,  1.0)).r;
 
     let m = mat3x3(
         vec3( c,  c,  c),
         vec3( c,  c,  e),
-        vec3( c,  n,  c),
+        vec3( c,  c, ne),
     );
 
     let gx = dot(KERNEL_X[0], m[0]) + dot(KERNEL_X[1], m[1]) + dot(KERNEL_X[2], m[2]);
@@ -128,9 +124,9 @@ fn hsl2rgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 fn darken(color: vec4<f32>, r: f32) -> vec4<f32> {
-    if (r > 0.5) {
+    if (r > 0.035) {
         var hsl = rgb2hsl(color.rgb);
-        hsl.z *= 0.75;
+        hsl.z *= 0.5;
 
         return vec4(hsl2rgb(hsl), color.a);
     } else {
