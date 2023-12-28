@@ -20,10 +20,10 @@ use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
 use automancy_defs::bytemuck;
-use automancy_defs::hashbrown::{HashMap, HashSet};
+use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::Matrix4;
-use automancy_defs::rendering::{GameUBO, InstanceData, PostEffectsUBO, RawInstanceData, Vertex};
+use automancy_defs::rendering::{GameUBO, InstanceData, RawInstanceData, Vertex};
 use automancy_defs::slice_group_by::GroupBy;
 use automancy_macros::OptionGetter;
 use automancy_resources::ResourceManager;
@@ -57,11 +57,6 @@ pub fn init_gpu_resources(
     let game_shader = device.create_shader_module(ShaderModuleDescriptor {
         label: Some("Game Shader"),
         source: ShaderSource::Wgsl(resource_man.shaders["game"].as_str().into()),
-    });
-
-    let post_effects_shader = device.create_shader_module(ShaderModuleDescriptor {
-        label: Some("Post Effects Shader"),
-        source: ShaderSource::Wgsl(resource_man.shaders["post_effects"].as_str().into()),
     });
 
     let combine_shader = device.create_shader_module(ShaderModuleDescriptor {
@@ -209,12 +204,6 @@ pub fn init_gpu_resources(
             uniform_buffer,
             bind_group,
             pipeline,
-            post_effects_uniform_buffer: device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Game Post Effects Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[PostEffectsUBO::default()]),
-                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            }),
-            post_effects_bind_group: None,
             antialiasing_bind_group: None,
         }
     };
@@ -417,116 +406,6 @@ pub fn init_gpu_resources(
         texture: None,
     };
 
-    let post_effects_resources = {
-        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-            ],
-            label: Some("post_effects_bind_group_layout"),
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some("Post Effects Render Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Post Effects Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: VertexState {
-                module: &post_effects_shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(FragmentState {
-                module: &post_effects_shader,
-                entry_point: "fs_main",
-                targets: &[Some(ColorTargetState {
-                    format: config.format,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
-
-        PostEffectsResources {
-            bind_group_layout,
-            pipeline,
-            texture: None,
-        }
-    };
-
     let antialiasing_resources = {
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -699,7 +578,6 @@ pub fn init_gpu_resources(
 
     let mut shared = SharedResources {
         game_shader,
-        post_effects_shader,
         combine_shader,
         intermediate_shader,
 
@@ -717,7 +595,6 @@ pub fn init_gpu_resources(
         in_world_item_resources,
         egui_resources,
         first_combine_resources,
-        post_effects_resources,
         antialiasing_resources,
         intermediate_resources,
     };
@@ -890,53 +767,6 @@ pub fn create_texture_and_view(
     (texture, view)
 }
 
-fn make_post_effects_bind_group(
-    device: &Device,
-    bind_group_layout: &BindGroupLayout,
-    uniform_buffer: &Buffer,
-    surface_texture: &TextureView,
-    surface_sampler: &Sampler,
-    normal_texture: &TextureView,
-    normal_sampler: &Sampler,
-    depth_texture: &TextureView,
-    depth_sampler: &Sampler,
-) -> BindGroup {
-    device.create_bind_group(&BindGroupDescriptor {
-        layout: bind_group_layout,
-        entries: &[
-            BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 1,
-                resource: BindingResource::TextureView(surface_texture),
-            },
-            BindGroupEntry {
-                binding: 2,
-                resource: BindingResource::Sampler(surface_sampler),
-            },
-            BindGroupEntry {
-                binding: 3,
-                resource: BindingResource::TextureView(normal_texture),
-            },
-            BindGroupEntry {
-                binding: 4,
-                resource: BindingResource::Sampler(normal_sampler),
-            },
-            BindGroupEntry {
-                binding: 5,
-                resource: BindingResource::TextureView(depth_texture),
-            },
-            BindGroupEntry {
-                binding: 6,
-                resource: BindingResource::Sampler(depth_sampler),
-            },
-        ],
-        label: Some("post_effects_bind_group"),
-    })
-}
-
 fn make_combine_bind_group(
     device: &Device,
     bind_group_layout: &BindGroupLayout,
@@ -1001,9 +831,7 @@ pub struct SharedDescriptor<'a> {
 }
 
 pub struct GameDescriptor<'a> {
-    pub post_effects_bind_group_layout: &'a BindGroupLayout,
     pub antialiasing_bind_group_layout: &'a BindGroupLayout,
-    pub post_processing_texture: &'a TextureView,
 }
 
 #[derive(OptionGetter)]
@@ -1013,9 +841,6 @@ pub struct GameResources {
     pub uniform_buffer: Buffer,
     pub bind_group: BindGroup,
     pub pipeline: RenderPipeline,
-    pub post_effects_uniform_buffer: Buffer,
-    #[getters(get)]
-    post_effects_bind_group: Option<BindGroup>,
     #[getters(get)]
     antialiasing_bind_group: Option<BindGroup>,
 }
@@ -1027,21 +852,10 @@ impl GameResources {
         shared_descriptor: &SharedDescriptor,
         game_descriptor: &GameDescriptor,
     ) {
-        self.post_effects_bind_group = Some(make_post_effects_bind_group(
-            device,
-            game_descriptor.post_effects_bind_group_layout,
-            &self.post_effects_uniform_buffer,
-            shared_descriptor.game_texture,
-            shared_descriptor.non_filtering_sampler,
-            shared_descriptor.normal_texture,
-            shared_descriptor.non_filtering_sampler,
-            shared_descriptor.model_depth_texture,
-            shared_descriptor.non_filtering_sampler,
-        ));
         self.antialiasing_bind_group = Some(make_antialiasing_bind_group(
             device,
             game_descriptor.antialiasing_bind_group_layout,
-            game_descriptor.post_processing_texture,
+            shared_descriptor.game_texture,
             shared_descriptor.filtering_sampler,
         ));
     }
@@ -1152,36 +966,6 @@ impl CombineResources {
             shared_descriptor.filtering_sampler,
             second_texture,
             shared_descriptor.filtering_sampler,
-        ));
-    }
-}
-
-#[derive(OptionGetter)]
-pub struct PostEffectsResources {
-    pub bind_group_layout: BindGroupLayout,
-    pub pipeline: RenderPipeline,
-    #[getters(get)]
-    texture: Option<(Texture, TextureView)>,
-}
-
-impl PostEffectsResources {
-    pub fn create(&mut self, device: &Device, config: &SurfaceConfiguration) {
-        self.texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: Extent3d {
-                    width: config.width,
-                    height: config.height,
-                    ..Default::default()
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: config.format,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
         ));
     }
 }
@@ -1377,7 +1161,6 @@ pub struct GlobalBuffers {
 
 pub struct SharedResources {
     pub game_shader: ShaderModule,
-    pub post_effects_shader: ShaderModule,
     pub combine_shader: ShaderModule,
     pub intermediate_shader: ShaderModule,
 
@@ -1397,7 +1180,6 @@ pub struct RenderResources {
 
     pub first_combine_resources: CombineResources,
 
-    pub post_effects_resources: PostEffectsResources,
     pub antialiasing_resources: AntialiasingResources,
     pub intermediate_resources: IntermediateResources,
 }
@@ -1493,20 +1275,13 @@ impl SharedResources {
         };
 
         render_resources
-            .post_effects_resources
-            .create(device, config);
-        render_resources
             .antialiasing_resources
             .create(device, config);
 
         let game_descriptor = GameDescriptor {
-            post_effects_bind_group_layout: &render_resources
-                .post_effects_resources
-                .bind_group_layout,
             antialiasing_bind_group_layout: &render_resources
                 .antialiasing_resources
                 .bind_group_layout,
-            post_processing_texture: &render_resources.post_effects_resources.texture().1,
         };
 
         render_resources

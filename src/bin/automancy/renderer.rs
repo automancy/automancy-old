@@ -32,9 +32,7 @@ use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::{deg, direction_to_angle, Double, Float, Matrix4, FAR};
-use automancy_defs::rendering::{
-    lerp_coords_to_pixel, make_line, GameUBO, InstanceData, PostEffectsUBO,
-};
+use automancy_defs::rendering::{lerp_coords_to_pixel, make_line, GameUBO, InstanceData};
 use automancy_defs::slice_group_by::GroupBy;
 use automancy_defs::{bytemuck, colors, math};
 use automancy_resources::data::Data;
@@ -456,42 +454,6 @@ impl Renderer {
         }
 
         {
-            let mut post_effects_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Game Post Effects Render Pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &self.render_resources.post_effects_resources.texture().1,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK),
-                        store: StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
-
-            self.gpu.queue.write_buffer(
-                &self
-                    .render_resources
-                    .game_resources
-                    .post_effects_uniform_buffer,
-                0,
-                bytemuck::cast_slice(&[PostEffectsUBO::default()]),
-            );
-
-            post_effects_pass.set_pipeline(&self.render_resources.post_effects_resources.pipeline);
-            post_effects_pass.set_bind_group(
-                0,
-                self.render_resources
-                    .game_resources
-                    .post_effects_bind_group(),
-                &[],
-            );
-            post_effects_pass.draw(0..3, 0..1);
-        }
-
-        {
             gpu::create_or_write_buffer(
                 &self.gpu.device,
                 &self.gpu.queue,
@@ -520,7 +482,7 @@ impl Renderer {
                 label: Some("In-world Item Render Pass"),
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
-                        view: &self.render_resources.post_effects_resources.texture().1,
+                        view: &self.shared_resources.game_texture().1,
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,

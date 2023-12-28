@@ -222,12 +222,6 @@ impl GameUBO {
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
-pub struct PostEffectsUBO {
-    pub _empty: Float,
-}
-
 // model
 
 #[derive(Debug, Clone)]

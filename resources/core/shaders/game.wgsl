@@ -75,7 +75,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     var out: FragmentOutput;
 
-    out.color = vec4(in.color.rgb * ubo.light_color.rgb * clamp(diffuse, 0.2, ubo.light_color.a), in.color.a);
+    out.color = vec4(in.color.rgb * ubo.light_color.rgb * clamp(diffuse, 0.3, ubo.light_color.a), in.color.a);
     out.normal = vec4(in.normal, 0.0);
     out.depth = in.model_pos.z;
 
