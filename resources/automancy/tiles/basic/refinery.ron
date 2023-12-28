@@ -13,5 +13,6 @@
             "gold",
             "philosophers_stone",
         ]),
+        "default_tile": Bool(true),
     }),
 )

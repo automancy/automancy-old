@@ -63,7 +63,7 @@ impl Options {
         let mut file = File::create(OPTIONS_PATH)?;
 
         log::info!("Serializing options...");
-        log::debug!("{:?}", &self);
+        log::debug!("{self:?}");
 
         let document = ron::ser::to_string_pretty(&self, PrettyConfig::default())?;
 

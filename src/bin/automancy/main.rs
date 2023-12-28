@@ -4,6 +4,7 @@ use std::fmt::Write;
 use std::fs::File;
 use std::panic::PanicInfo;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, panic};
 
@@ -21,7 +22,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, WindowBuilder};
 
 use automancy::camera::Camera;
-use automancy::gpu::Gpu;
+use automancy::gpu::{init_gpu_resources, Gpu, DEPTH_FORMAT};
 use automancy_defs::flexstr::ToSharedStr;
 use automancy_defs::gui::init_gui;
 use automancy_defs::gui::set_font;
@@ -161,24 +162,32 @@ fn main() -> eyre::Result<()> {
         .block_on(GameSetup::setup(camera))
         .expect("Critical failure in game setup");
 
-    // --- render ---
-    log::info!("Setting up rendering...");
-    let gpu = block_on(Gpu::new(
-        window,
-        &setup.resource_man,
-        vertices,
-        indices,
-        setup.options.graphics.fps_limit == 0.0,
-    ));
-    log::info!("Render setup.");
+    let gpu = block_on(Gpu::new(window, setup.options.graphics.fps_limit == 0.0));
 
     // --- gui ---
     log::info!("Setting up gui...");
-    let mut gui = init_gui(
-        egui_context,
-        egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, None, 1),
-        &gpu.window,
+    let mut egui_renderer =
+        egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, Some(DEPTH_FORMAT), 1);
+    let egui_callback_resources = &mut egui_renderer.callback_resources;
+    egui_callback_resources.insert(setup.resource_man.clone());
+
+    // - render -
+    log::info!("Setting up rendering...");
+    let (shared_resources, render_resources, global_buffers, gui_resources) = init_gpu_resources(
+        &gpu.device,
+        &gpu.config,
+        &setup.resource_man,
+        vertices,
+        indices,
     );
+    let global_buffers = Arc::new(global_buffers);
+    log::info!("Render setup.");
+    // - render -
+
+    egui_callback_resources.insert(gui_resources);
+    egui_callback_resources.insert(global_buffers.clone());
+
+    let mut gui = init_gui(egui_context, egui_renderer, &gpu.window);
     gui.fonts = FontDefinitions::default();
     for (name, font) in setup.resource_man.fonts.iter() {
         gui.fonts
@@ -188,10 +197,14 @@ fn main() -> eyre::Result<()> {
     set_font(setup.options.gui.font.to_shared_str(), &mut gui);
     log::info!("Gui set up.");
 
-    let mut renderer = Renderer::new(gpu, &setup.options);
-
+    let mut renderer = Renderer::new(
+        gpu,
+        shared_resources,
+        render_resources,
+        global_buffers.clone(),
+        &setup.options,
+    );
     let mut loop_store = EventLoopStorage::default();
-
     let mut closed = false;
 
     event_loop.run(move |event, target| {

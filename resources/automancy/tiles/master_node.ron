@@ -4,5 +4,6 @@
     model: "master_node",
     data: ({
         "linking": Bool(true),
+        "default_tile": Bool(true),
     }),
 )

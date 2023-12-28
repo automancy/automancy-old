@@ -11,5 +11,6 @@
             "sand_to_air",
             "mud_to_water",
         ]),
+        "default_tile": Bool(true),
     }),
 )

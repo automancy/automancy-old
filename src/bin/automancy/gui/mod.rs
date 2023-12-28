@@ -1,12 +1,23 @@
+use automancy::gpu;
+use automancy::gpu::{AnimationMap, GlobalBuffers, GuiResources};
+
 use egui::epaint::Shadow;
-use egui::{Frame, Margin, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText};
+use egui::{
+    Frame, Margin, PaintCallbackInfo, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText,
+};
+use egui_wgpu::{CallbackResources, CallbackTrait};
 use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
+use lazy_static::lazy_static;
+use std::sync::{Arc, Mutex};
+use wgpu::util::DrawIndexedIndirect;
+use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
 use crate::gui::item::{draw_item, SMALL_ITEM_ICON_SIZE};
-use crate::renderer::GuiInstances;
-use automancy_defs::colors;
+use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
+use automancy_defs::rendering::InstanceData;
+use automancy_defs::{bytemuck, colors};
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
 
@@ -122,6 +133,7 @@ impl GuiState {
         }
     }
 }
+
 #[derive(Eq, PartialEq, Ord, PartialOrd, Enum, Clone, Copy)]
 pub enum TextField {
     Filter,
@@ -156,7 +168,6 @@ impl TextFieldState {
     pub fn searchable_id<'a>(
         &mut self,
         ui: &mut Ui,
-        item_instances: &mut GuiInstances,
         resource_man: &'a ResourceManager,
         ids: &[Id],
         new_id: &mut Option<Id>,
@@ -208,19 +219,137 @@ impl TextFieldState {
 
                     if let Some(stacks) = item(resource_man, &id) {
                         for stack in stacks {
-                            draw_item(
-                                resource_man,
-                                ui,
-                                item_instances,
-                                None,
-                                *stack,
-                                SMALL_ITEM_ICON_SIZE,
-                                false,
-                            );
+                            draw_item(ui, resource_man, None, *stack, SMALL_ITEM_ICON_SIZE, false);
                         }
                     }
                 });
             }
         });
+    }
+}
+
+pub fn info_hover(ui: &mut Ui, info: impl Into<WidgetText>) {
+    ui.label("ⓘ").on_hover_ui(|ui| {
+        ui.label(info);
+    });
+}
+
+lazy_static! {
+    static ref INDEX_COUNTER: Mutex<u32> = Mutex::new(0);
+}
+
+pub fn reset_callback_counter() {
+    *INDEX_COUNTER.lock().unwrap() = 0;
+}
+
+pub struct GameEguiCallback {
+    instance: InstanceData,
+    model: Id,
+    index: u32,
+}
+
+impl GameEguiCallback {
+    pub fn new(instance: InstanceData, model: Id) -> Self {
+        let mut counter = INDEX_COUNTER.lock().unwrap();
+
+        let result = Self {
+            instance,
+            model,
+            index: *counter,
+        };
+        *counter += 1;
+
+        result
+    }
+}
+
+impl CallbackTrait for GameEguiCallback {
+    fn prepare(
+        &self,
+        _device: &Device,
+        _queue: &Queue,
+        _egui_encoder: &mut CommandEncoder,
+        callback_resources: &mut CallbackResources,
+    ) -> Vec<CommandBuffer> {
+        callback_resources
+            .entry::<Vec<(InstanceData, Id, u32)>>()
+            .or_insert_with(Vec::new)
+            .push((self.instance, self.model, self.index));
+
+        Vec::new()
+    }
+
+    fn finish_prepare(
+        &self,
+        device: &Device,
+        queue: &Queue,
+        _egui_encoder: &mut CommandEncoder,
+        callback_resources: &mut CallbackResources,
+    ) -> Vec<CommandBuffer> {
+        if let Some(mut instances) = callback_resources.remove::<Vec<(InstanceData, Id, u32)>>() {
+            instances.sort_by_key(|v| v.1);
+
+            let resource_man = callback_resources
+                .get::<Arc<ResourceManager>>()
+                .unwrap()
+                .clone();
+            let animation_map = callback_resources.get::<AnimationMap>().unwrap().clone();
+
+            let (instances, draws, _count) =
+                gpu::indirect_instance(&resource_man, &instances, false, &animation_map);
+
+            {
+                let gui_resources = callback_resources.get_mut::<GuiResources>().unwrap();
+
+                gpu::create_or_write_buffer(
+                    device,
+                    queue,
+                    &mut gui_resources.instance_buffer,
+                    bytemuck::cast_slice(instances.as_slice()),
+                );
+            }
+
+            callback_resources.insert(draws);
+        }
+
+        Vec::new()
+    }
+
+    fn paint<'a>(
+        &'a self,
+        info: PaintCallbackInfo,
+        render_pass: &mut RenderPass<'a>,
+        callback_resources: &'a CallbackResources,
+    ) {
+        if let Some(draws) =
+            callback_resources.get::<HashMap<Id, Vec<(DrawIndexedIndirect, u32)>>>()
+        {
+            let viewport = info.viewport * info.pixels_per_point;
+            let gui_resources = callback_resources.get::<GuiResources>().unwrap();
+            let global_buffers = callback_resources.get::<Arc<GlobalBuffers>>().unwrap();
+
+            render_pass.set_pipeline(&gui_resources.pipeline);
+            render_pass.set_bind_group(0, &gui_resources.bind_group, &[]);
+            render_pass.set_vertex_buffer(0, global_buffers.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, gui_resources.instance_buffer.slice(..));
+            render_pass
+                .set_index_buffer(global_buffers.index_buffer.slice(..), IndexFormat::Uint16);
+            render_pass.set_viewport(
+                viewport.left(),
+                viewport.top(),
+                viewport.width(),
+                viewport.height(),
+                1.0,
+                0.0,
+            );
+
+            for (draw, ..) in draws[&self.model].iter().filter(|v| v.1 == self.index) {
+                render_pass.draw_indexed(
+                    draw.base_index..(draw.base_index + draw.vertex_count),
+                    draw.vertex_offset,
+                    draw.base_instance..(draw.base_instance + draw.instance_count),
+                );
+            }
+        }
     }
 }

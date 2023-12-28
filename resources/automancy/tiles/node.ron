@@ -4,5 +4,6 @@
     model: "node",
     data: ({
         "linked": Bool(true),
+        "default_tile": Bool(true),
     }),
 )

@@ -1,95 +1,97 @@
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel, Ui};
 use futures::channel::mpsc;
+use std::f32::consts::FRAC_PI_4;
 
 use automancy_defs::cgmath::point3;
 use automancy_defs::id::Id;
-use automancy_defs::math::{rad, Matrix4};
+use automancy_defs::math;
+use automancy_defs::math::{rad, z_far, z_near, Matrix4};
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::{Data, DataMap};
 
-use crate::gui::default_frame;
-use crate::renderer::GuiInstances;
+use crate::gui::{default_frame, GameEguiCallback};
 use crate::setup::GameSetup;
 
 /// Draws the tile selection.
 fn draw_tile_selection(
     setup: &GameSetup,
-    gui_instances: &mut GuiInstances,
     ui: &mut Ui,
     mut selection_send: mpsc::Sender<Id>,
     game_data: &DataMap,
 ) {
     let size = ui.available_height();
+    let projection =
+        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(point3(0.0, 0.0, 3.0));
 
-    setup
-        .resource_man
-        .ordered_tiles
-        .iter()
-        .filter(|id| {
-            if Some(&true)
-                == setup
-                    .resource_man
-                    .registry
-                    .tile(**id)
-                    .unwrap()
-                    .data
-                    .get(&setup.resource_man.registry.data_ids.default_tile)
-                    .and_then(Data::as_bool)
+    for id in setup.resource_man.ordered_tiles.iter().filter(|id| {
+        if Some(&true)
+            == setup
+                .resource_man
+                .registry
+                .tile(**id)
+                .unwrap()
+                .data
+                .get(&setup.resource_man.registry.data_ids.default_tile)
+                .and_then(Data::as_bool)
+        {
+            return true;
+        }
+
+        if let Some(research) = setup.resource_man.get_research_by_unlock(**id) {
+            if let Some(unlocked) = game_data
+                .get(&setup.resource_man.registry.data_ids.unlocked_researches)
+                .and_then(Data::as_set_id)
             {
-                return true;
+                return unlocked.contains(&research.id);
             }
+        }
 
-            if let Some(research) = setup.resource_man.get_research_by_unlock(**id) {
-                if let Some(unlocked) = game_data
-                    .get(&setup.resource_man.registry.data_ids.unlocked_researches)
-                    .and_then(Data::as_set_id)
-                {
-                    return unlocked.contains(&research.id);
-                }
-            }
+        false
+    }) {
+        let tile = setup.resource_man.registry.tile(*id).unwrap();
+        let model = setup.resource_man.get_model(tile.model);
 
-            false
-        })
-        .for_each(|id| {
-            let tile = setup.resource_man.registry.tile(*id).unwrap();
-            let model = setup.resource_man.get_model(tile.model);
+        let (ui_id, rect) = ui.allocate_space(vec2(size, size));
+        if !ui.ctx().screen_rect().contains_rect(rect) {
+            continue;
+        }
 
-            let (ui_id, rect) = ui.allocate_space(vec2(size, size));
-            let response = ui.interact(rect, ui_id, Sense::click());
+        let response = ui.interact(rect, ui_id, Sense::click());
 
-            response
-                .clone()
-                .on_hover_text(setup.resource_man.tile_name(id));
-            response.clone().on_hover_cursor(CursorIcon::Grab);
+        response
+            .clone()
+            .on_hover_text(setup.resource_man.tile_name(id));
+        response.clone().on_hover_cursor(CursorIcon::Grab);
 
-            let hover = if response.hovered() {
-                ui.ctx()
-                    .animate_value_with_time(ui.next_auto_id(), 0.7, 0.3)
-            } else {
-                ui.ctx()
-                    .animate_value_with_time(ui.next_auto_id(), 0.2, 0.3)
-            };
-            if response.clicked() {
-                selection_send.try_send(*id).unwrap();
-            }
+        let hover = if response.hovered() {
+            ui.ctx()
+                .animate_value_with_time(ui.next_auto_id(), 0.7, 0.3)
+        } else {
+            ui.ctx()
+                .animate_value_with_time(ui.next_auto_id(), 0.2, 0.3)
+        };
+        if response.clicked() {
+            selection_send.try_send(*id).unwrap();
+        }
 
-            let matrix = Matrix4::from_angle_x(rad(hover));
+        let matrix = projection * Matrix4::from_angle_x(rad(hover));
 
-            gui_instances.push((
+        ui.painter().add(egui_wgpu::Callback::new_paint_callback(
+            rect,
+            GameEguiCallback::new(
                 InstanceData::default()
                     .with_model_matrix(matrix)
-                    .with_light_pos(point3(0.0, 1.5, 10.0)),
+                    .with_light_pos(point3(0.0, 0.0, -2.0)),
                 model,
-                (Some(rect), Some(ui.clip_rect())),
-            ));
-        });
+            ),
+        ));
+    }
 }
 
 /// Creates the tile selection GUI.
 pub fn tile_selections(
     setup: &GameSetup,
-    gui_instances: &mut GuiInstances,
     context: &Context,
     selection_send: mpsc::Sender<Id>,
     game_data: &DataMap,
@@ -105,7 +107,7 @@ pub fn tile_selections(
                     ui.horizontal(|ui| {
                         ui.set_height(80.0);
 
-                        draw_tile_selection(setup, gui_instances, ui, selection_send, game_data);
+                        draw_tile_selection(setup, ui, selection_send, game_data);
                     });
                 });
         });

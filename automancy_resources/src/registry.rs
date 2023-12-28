@@ -94,6 +94,7 @@ pub struct GuiIds {
     pub open_research: Id,
     pub tile_config: Id,
     pub tile_config_script: Id,
+    pub tile_config_script_info: Id,
     pub tile_config_item: Id,
     pub tile_config_target: Id,
     pub error_popup: Id,

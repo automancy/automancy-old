@@ -80,7 +80,7 @@ impl Default for InstanceData {
         Self {
             color_offset: [0.0, 0.0, 0.0, 0.0],
             alpha: 1.0,
-            light_pos: point3(0.0, 0.0, 8.0),
+            light_pos: point3(0.0, 0.0, 0.0),
             matrix: Matrix4::identity(),
         }
     }

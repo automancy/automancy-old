@@ -3,7 +3,7 @@ use std::mem;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use egui::Rect;
+use egui::{LayerId, Rect};
 use egui_wgpu::wgpu::SurfaceError;
 use fuse_rust::Fuse;
 use futures::channel::mpsc;
@@ -11,7 +11,9 @@ use futures::executor::block_on;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 
+use crate::gui;
 use automancy::game::{GameMsg, PlaceTileResponse};
+use automancy::gpu::AnimationMap;
 use automancy::input;
 use automancy::input::KeyActions;
 use automancy::tile_entity::TileEntityMsg;
@@ -28,8 +30,8 @@ use automancy_resources::data::item::Item;
 use automancy_resources::data::Data;
 
 use crate::gui::{
-    error, info, menu, player, popup, tile_config, tile_selection, GuiState, PopupState, Screen,
-    TextField,
+    error, info, menu, player, popup, tile_config, tile_selection, GameEguiCallback, GuiState,
+    PopupState, Screen, TextField,
 };
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
@@ -114,6 +116,8 @@ fn render(
     gui: &mut Gui,
     target: &EventLoopWindowTarget<()>,
 ) -> anyhow::Result<bool> {
+    gui::reset_callback_counter();
+
     let mut result = Ok(false);
 
     setup.camera.update_pointing_at(
@@ -129,10 +133,9 @@ fn render(
     let mut tile_tints = HashMap::new();
 
     let mut extra_instances = vec![];
-    let mut overlay_instances = vec![];
     let mut in_world_item_instances = vec![];
-    let mut gui_instances = vec![];
-    let mut item_instances = vec![];
+
+    gui.renderer.callback_resources.insert(AnimationMap::new());
 
     let camera_pos_float = setup.camera.get_pos().cast().unwrap();
 
@@ -163,25 +166,18 @@ fn render(
                             .unwrap();
 
                         if setup.input_handler.key_active(KeyActions::Player) {
-                            player::player(setup, loop_store, &mut item_instances, &gui.context);
+                            player::player(setup, loop_store, &gui.context);
                         }
 
                         // tile_info
-                        info::info(setup, &mut item_instances, &gui.context);
+                        info::info(setup, &gui.context);
 
                         // tile_config
-                        tile_config::tile_config(
-                            setup,
-                            loop_store,
-                            &mut item_instances,
-                            &gui.context,
-                            &mut game_data,
-                        );
+                        tile_config::tile_config(setup, loop_store, &gui.context, &mut game_data);
 
                         // tile_selections
                         tile_selection::tile_selections(
                             setup,
-                            &mut gui_instances,
                             &gui.context,
                             selection_send,
                             &game_data,
@@ -206,19 +202,24 @@ fn render(
 
                         if let Some(id) = loop_store.selected_id {
                             if let Some(tile) = setup.resource_man.registry.tile(id) {
-                                overlay_instances.push((
-                                    InstanceData {
-                                        alpha: 0.6,
-                                        light_pos: camera_pos_float,
-                                        matrix: Matrix4::from_translation(vec3(
-                                            cursor_pos.x as Float,
-                                            cursor_pos.y as Float,
-                                            FAR as Float,
-                                        )),
-                                        ..Default::default()
-                                    },
-                                    tile.model,
-                                ));
+                                gui.context.layer_painter(LayerId::background()).add(
+                                    egui_wgpu::Callback::new_paint_callback(
+                                        gui.context.screen_rect(),
+                                        GameEguiCallback::new(
+                                            InstanceData {
+                                                alpha: 0.6,
+                                                matrix: setup.camera.get_matrix().cast().unwrap()
+                                                    * Matrix4::from_translation(vec3(
+                                                        cursor_pos.x as Float,
+                                                        cursor_pos.y as Float,
+                                                        FAR as Float,
+                                                    )),
+                                                ..Default::default()
+                                            },
+                                            tile.model,
+                                        ),
+                                    ),
+                                );
                             }
                         }
 
@@ -306,15 +307,14 @@ fn render(
                 gui,
                 tile_tints,
                 extra_instances,
-                overlay_instances,
                 in_world_item_instances,
-                gui_instances,
-                item_instances,
             ) {
                 Ok(_) => {}
-                Err(SurfaceError::Lost) => renderer
-                    .gpu
-                    .create_textures(renderer.gpu.window.inner_size()),
+                Err(SurfaceError::Lost) => renderer.gpu.resize(
+                    &mut renderer.shared_resources,
+                    &mut renderer.render_resources,
+                    renderer.gpu.window.inner_size(),
+                ),
                 Err(SurfaceError::OutOfMemory) => {
                     return shutdown_graceful(setup, target);
                 }
@@ -364,7 +364,11 @@ pub fn on_event(
                     return render(setup, loop_store, renderer, gui, target);
                 }
                 WindowEvent::Resized(size) => {
-                    renderer.gpu.create_textures(*size);
+                    renderer.gpu.resize(
+                        &mut renderer.shared_resources,
+                        &mut renderer.render_resources,
+                        *size,
+                    );
 
                     return Ok(false);
                 }

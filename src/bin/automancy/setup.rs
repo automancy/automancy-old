@@ -2,7 +2,6 @@ use std::fs;
 use std::sync::Arc;
 use std::time::Instant;
 
-use egui::Frame;
 use ractor::concurrency::JoinHandle;
 use ractor::{Actor, ActorRef};
 
@@ -18,8 +17,6 @@ use automancy_resources::kira::manager::backend::cpal::CpalBackend;
 use automancy_resources::kira::manager::{AudioManager, AudioManagerSettings};
 use automancy_resources::kira::track::{TrackBuilder, TrackHandle};
 use automancy_resources::{ResourceManager, RESOURCES_PATH, RESOURCE_MAN};
-
-use crate::gui;
 
 /// Initialize the Resource Manager system, and loads all the resources in all namespaces.
 fn load_resources(track: TrackHandle) -> (Arc<ResourceManager>, Vec<Vertex>, Vec<u16>) {
@@ -77,8 +74,6 @@ pub struct GameSetup {
     pub game: ActorRef<GameMsg>,
     /// the game's async handle, for graceful shutdown
     pub game_handle: Option<JoinHandle<()>>,
-    /// the egui frame
-    pub frame: Frame,
     /// the camera
     pub camera: Camera,
     /// the last camera position, in chunk coord
@@ -139,8 +134,6 @@ impl GameSetup {
         log::info!("Loading completed!");
 
         // --- last setup ---
-        let frame = gui::default_frame();
-
         let camera_coord = camera.get_tile_coord();
 
         // --- event-loop ---
@@ -150,7 +143,6 @@ impl GameSetup {
                 resource_man,
                 game,
                 game_handle: Some(game_handle),
-                frame,
                 camera,
                 camera_chunk_coord: camera_coord.into(),
                 maps: Vec::new(),

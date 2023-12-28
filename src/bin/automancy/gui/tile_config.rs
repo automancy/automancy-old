@@ -18,9 +18,9 @@ use automancy_resources::types::tile::Tile;
 use automancy_resources::ResourceManager;
 
 use crate::event::EventLoopStorage;
+use crate::gui;
 use crate::gui::item::{draw_item, MEDIUM_ITEM_ICON_SIZE, SMALL_ITEM_ICON_SIZE};
-use crate::gui::TextField;
-use crate::renderer::GuiInstances;
+use crate::gui::{info_hover, TextField};
 use crate::setup::GameSetup;
 
 /// Draws the direction selector.
@@ -168,7 +168,6 @@ fn takeable_item(
     ui: &mut Ui,
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
-    item_instances: &mut GuiInstances,
     mut buffer: Inventory,
     game_data: &mut DataMap,
     tile_entity: ActorRef<TileEntityMsg>,
@@ -182,9 +181,8 @@ fn takeable_item(
             let item = *setup.resource_man.registry.item(id).unwrap();
 
             let (rect, response) = draw_item(
-                &setup.resource_man,
                 ui,
-                item_instances,
+                &setup.resource_man,
                 None,
                 ItemStack { item, amount },
                 MEDIUM_ITEM_ICON_SIZE,
@@ -216,7 +214,6 @@ fn config_item(
     ui: &mut Ui,
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
-    item_instances: &mut GuiInstances,
     data: &DataMap,
     item_type: Id,
     tile_entity: ActorRef<TileEntityMsg>,
@@ -251,9 +248,8 @@ fn config_item(
         .map(|item| ItemStack { item, amount: 0 })
     {
         draw_item(
-            &setup.resource_man,
             ui,
-            item_instances,
+            &setup.resource_man,
             None,
             stack,
             SMALL_ITEM_ICON_SIZE,
@@ -262,7 +258,6 @@ fn config_item(
     }
     loop_store.gui_state.text_field.searchable_id(
         ui,
-        item_instances,
         &setup.resource_man,
         items.as_slice(),
         &mut new_item,
@@ -294,7 +289,6 @@ fn config_script(
     ui: &mut Ui,
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
-    item_instances: &mut GuiInstances,
     data: &DataMap,
     scripts: &Vec<Id>,
     tile_entity: ActorRef<TileEntityMsg>,
@@ -305,10 +299,19 @@ fn config_script(
         .cloned();
     let mut new_script = current_script;
 
-    ui.label(
-        setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.tile_config_script]
-            .as_str(),
-    );
+    ui.horizontal(|ui| {
+        ui.label(
+            setup.resource_man.translates.gui
+                [&setup.resource_man.registry.gui_ids.tile_config_script]
+                .as_str(),
+        );
+        info_hover(
+            ui,
+            setup.resource_man.translates.gui
+                [&setup.resource_man.registry.gui_ids.tile_config_script_info]
+                .as_str(),
+        );
+    });
 
     ui.vertical(|ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
@@ -317,9 +320,8 @@ fn config_script(
             if let Some(inputs) = &script.instructions.inputs {
                 for input in inputs {
                     draw_item(
-                        &setup.resource_man,
                         ui,
-                        item_instances,
+                        &setup.resource_man,
                         Some(" + "),
                         *input,
                         SMALL_ITEM_ICON_SIZE,
@@ -330,9 +332,8 @@ fn config_script(
 
             for output in &script.instructions.outputs {
                 draw_item(
-                    &setup.resource_man,
                     ui,
-                    item_instances,
+                    &setup.resource_man,
                     Some("=> "),
                     *output,
                     SMALL_ITEM_ICON_SIZE,
@@ -344,7 +345,6 @@ fn config_script(
 
     loop_store.gui_state.text_field.searchable_id(
         ui,
-        item_instances,
         &setup.resource_man,
         scripts.as_slice(),
         &mut new_script,
@@ -376,7 +376,6 @@ fn config_script(
 pub fn tile_config(
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
-    item_instances: &mut GuiInstances,
     context: &Context,
     game_data: &mut DataMap,
 ) {
@@ -409,7 +408,7 @@ pub fn tile_config(
             .resizable(false)
             .auto_sized()
             .constrain(true)
-            .frame(setup.frame.inner_margin(Margin::same(10.0)))
+            .frame(gui::default_frame().inner_margin(Margin::same(10.0)))
             .show(context, |ui| {
                 const MARGIN: Float = 10.0;
 
@@ -424,15 +423,7 @@ pub fn tile_config(
                 {
                     ui.add_space(MARGIN);
                     ui.vertical(|ui| {
-                        config_script(
-                            ui,
-                            setup,
-                            loop_store,
-                            item_instances,
-                            &data,
-                            scripts,
-                            tile_entity.clone(),
-                        );
+                        config_script(ui, setup, loop_store, &data, scripts, tile_entity.clone());
                     });
                     ui.add_space(MARGIN);
                 }
@@ -456,7 +447,6 @@ pub fn tile_config(
                                 ui,
                                 setup,
                                 loop_store,
-                                item_instances,
                                 buffer,
                                 game_data,
                                 tile_entity.clone(),
@@ -477,7 +467,6 @@ pub fn tile_config(
                             ui,
                             setup,
                             loop_store,
-                            item_instances,
                             &data,
                             item_type,
                             tile_entity.clone(),

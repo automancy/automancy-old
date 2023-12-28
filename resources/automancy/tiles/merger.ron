@@ -4,5 +4,6 @@
     model: "merger",
     data: ({
         "inactive_model": Id("transfer_tile_inactive"),
+        "default_tile": Bool(true),
     }),
 )

@@ -1,11 +1,12 @@
+use automancy_defs::cgmath::point3;
+use automancy_defs::math;
 use egui::{vec2, Rect, Response, Sense, Ui};
 
+use crate::gui::GameEguiCallback;
 use automancy_defs::math::Float;
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
-
-use crate::renderer::GuiInstances;
 
 pub const SMALL_ITEM_ICON_SIZE: Float = 24.0;
 pub const MEDIUM_ITEM_ICON_SIZE: Float = 48.0;
@@ -13,9 +14,8 @@ pub const LARGE_ITEM_ICON_SIZE: Float = 96.0;
 
 /// Draws an Item's icon.
 pub fn draw_item(
-    resource_man: &ResourceManager,
     ui: &mut Ui,
-    item_instances: &mut GuiInstances,
+    resource_man: &ResourceManager,
     prefix: Option<&'static str>,
     stack: ItemStack,
     size: Float,
@@ -48,10 +48,16 @@ pub fn draw_item(
             icon_response
         };
 
-        item_instances.push((
-            InstanceData::default(),
-            resource_man.get_item_model(stack.item),
-            (Some(rect), None),
+        if !ui.ctx().screen_rect().contains_rect(rect) {
+            return (rect, response);
+        }
+
+        ui.painter().add(egui_wgpu::Callback::new_paint_callback(
+            rect,
+            GameEguiCallback::new(
+                InstanceData::default().with_model_matrix(math::view(point3(0.0, 0.0, 1.0))),
+                resource_man.get_item_model(stack.item),
+            ),
         ));
 
         (rect, response)
