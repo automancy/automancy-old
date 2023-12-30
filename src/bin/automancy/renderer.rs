@@ -335,8 +335,8 @@ impl Renderer {
         let egui_out = gui.context.end_frame();
         let egui_primitives = gui.context.tessellate(egui_out.shapes, factor);
         let egui_desc = ScreenDescriptor {
-            size_in_pixels: [size.width * 2, size.height * 2],
-            pixels_per_point: factor * 2.0,
+            size_in_pixels: [size.width, size.height],
+            pixels_per_point: factor,
         };
 
         let output = self.gpu.surface.get_current_texture()?;
@@ -568,7 +568,11 @@ impl Renderer {
             let mut antialiasing_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Game Antialiasing Render Pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &self.render_resources.antialiasing_resources.texture().1,
+                    view: &self
+                        .render_resources
+                        .game_resources
+                        .antialiasing_texture()
+                        .1,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
@@ -641,6 +645,38 @@ impl Renderer {
 
             user_commands
         };
+
+        {
+            let mut antialiasing_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Egui Antialiasing Render Pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &self
+                        .render_resources
+                        .egui_resources
+                        .antialiasing_texture()
+                        .1,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK),
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            antialiasing_pass
+                .set_pipeline(&self.render_resources.antialiasing_resources.fxaa_pipeline);
+            antialiasing_pass.set_bind_group(
+                0,
+                self.render_resources
+                    .egui_resources
+                    .antialiasing_bind_group(),
+                &[],
+            );
+            antialiasing_pass.draw(0..3, 0..1);
+        }
 
         {
             let mut combine_pass = encoder.begin_render_pass(&RenderPassDescriptor {

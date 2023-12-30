@@ -205,6 +205,7 @@ pub fn init_gpu_resources(
             bind_group,
             pipeline,
             antialiasing_bind_group: None,
+            antialiasing_texture: None,
         }
     };
 
@@ -319,6 +320,8 @@ pub fn init_gpu_resources(
     let egui_resources = EguiResources {
         texture: None,
         depth_texture: None,
+        antialiasing_bind_group: None,
+        antialiasing_texture: None,
     };
 
     let combine_bind_group_layout =
@@ -470,7 +473,6 @@ pub fn init_gpu_resources(
         AntialiasingResources {
             bind_group_layout,
             fxaa_pipeline,
-            texture: None,
         }
     };
 
@@ -620,7 +622,7 @@ pub fn compile_instances<T: Clone>(
     let mut raw_instances = HashMap::new();
 
     #[cfg(debug_assertions)]
-    let mut seen = HashSet::new();
+    let mut seen = automancy_defs::hashbrown::HashSet::new();
 
     instances.binary_group_by_key(|v| v.1).for_each(|v| {
         let id = v[0].1;
@@ -843,12 +845,15 @@ pub struct GameResources {
     pub pipeline: RenderPipeline,
     #[getters(get)]
     antialiasing_bind_group: Option<BindGroup>,
+    #[getters(get)]
+    antialiasing_texture: Option<(Texture, TextureView)>,
 }
 
 impl GameResources {
     pub fn create(
         &mut self,
         device: &Device,
+        config: &SurfaceConfiguration,
         shared_descriptor: &SharedDescriptor,
         game_descriptor: &GameDescriptor,
     ) {
@@ -857,6 +862,23 @@ impl GameResources {
             game_descriptor.antialiasing_bind_group_layout,
             shared_descriptor.game_texture,
             shared_descriptor.filtering_sampler,
+        ));
+        self.antialiasing_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: Extent3d {
+                    width: config.width,
+                    height: config.height,
+                    ..Default::default()
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: config.format,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
         ));
     }
 }
@@ -882,17 +904,27 @@ pub struct EguiResources {
     texture: Option<(Texture, TextureView)>,
     #[getters(get)]
     depth_texture: Option<(Texture, TextureView)>,
+    #[getters(get)]
+    antialiasing_bind_group: Option<BindGroup>,
+    #[getters(get)]
+    antialiasing_texture: Option<(Texture, TextureView)>,
 }
 
 impl EguiResources {
-    pub fn create(&mut self, device: &Device, config: &SurfaceConfiguration) {
+    pub fn create(
+        &mut self,
+        device: &Device,
+        config: &SurfaceConfiguration,
+        shared_descriptor: &SharedDescriptor,
+        game_descriptor: &GameDescriptor,
+    ) {
         self.texture = Some(create_texture_and_view(
             device,
             &TextureDescriptor {
                 label: None,
                 size: Extent3d {
-                    width: config.width * 2,
-                    height: config.height * 2,
+                    width: config.width,
+                    height: config.height,
                     ..Default::default()
                 },
                 mip_level_count: 1,
@@ -908,14 +940,37 @@ impl EguiResources {
             &TextureDescriptor {
                 label: None,
                 size: Extent3d {
-                    width: config.width * 2,
-                    height: config.height * 2,
+                    width: config.width,
+                    height: config.height,
                     ..Default::default()
                 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: DEPTH_FORMAT,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+        self.antialiasing_bind_group = Some(make_antialiasing_bind_group(
+            device,
+            game_descriptor.antialiasing_bind_group_layout,
+            &self.texture().1,
+            shared_descriptor.filtering_sampler,
+        ));
+        self.antialiasing_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: Extent3d {
+                    width: config.width,
+                    height: config.height,
+                    ..Default::default()
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: config.format,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
@@ -974,30 +1029,10 @@ impl CombineResources {
 pub struct AntialiasingResources {
     pub bind_group_layout: BindGroupLayout,
     pub fxaa_pipeline: RenderPipeline,
-    #[getters(get)]
-    texture: Option<(Texture, TextureView)>,
 }
 
 impl AntialiasingResources {
-    pub fn create(&mut self, device: &Device, config: &SurfaceConfiguration) {
-        self.texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: Extent3d {
-                    width: config.width,
-                    height: config.height,
-                    ..Default::default()
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: config.format,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        ));
-    }
+    pub fn create(&mut self, _device: &Device, _config: &SurfaceConfiguration) {}
 }
 
 #[derive(OptionGetter)]
@@ -1284,17 +1319,25 @@ impl SharedResources {
                 .bind_group_layout,
         };
 
-        render_resources
-            .game_resources
-            .create(device, &shared_descriptor, &game_descriptor);
-        render_resources.egui_resources.create(device, config);
+        render_resources.game_resources.create(
+            device,
+            config,
+            &shared_descriptor,
+            &game_descriptor,
+        );
+        render_resources.egui_resources.create(
+            device,
+            config,
+            &shared_descriptor,
+            &game_descriptor,
+        );
 
         render_resources.first_combine_resources.create(
             device,
             config,
             &shared_descriptor,
-            &render_resources.antialiasing_resources.texture().1,
-            &render_resources.egui_resources.texture().1,
+            &render_resources.game_resources.antialiasing_texture().1,
+            &render_resources.egui_resources.antialiasing_texture().1,
         );
         render_resources.intermediate_resources.create(
             device,
