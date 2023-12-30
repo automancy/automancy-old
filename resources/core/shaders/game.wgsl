@@ -69,10 +69,10 @@ struct FragmentOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput {
-	let nn = normalize(in.normal);
+	let normal = normalize(in.normal);
     let light_dir = normalize(in.model_pos - in.light_pos);
 
-    let diff = max(dot(-light_dir, nn), 0.0);
+    let diff = max(dot(-light_dir, normal), 0.0);
 
     var out: FragmentOutput;
 
