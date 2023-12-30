@@ -3,10 +3,10 @@ use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel,
 use futures::channel::mpsc;
 use std::f32::consts::FRAC_PI_4;
 
-use automancy_defs::cgmath::point3;
+use automancy_defs::cgmath::{point3, Rotation3};
 use automancy_defs::id::Id;
 use automancy_defs::math;
-use automancy_defs::math::{rad, z_far, z_near, Matrix4};
+use automancy_defs::math::{rad, z_far, z_near, Matrix4, Quaternion};
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::{Data, DataMap};
 
@@ -75,14 +75,14 @@ fn draw_tile_selection(
             selection_send.try_send(*id).unwrap();
         }
 
-        let matrix = projection * Matrix4::from_angle_x(rad(hover));
+        let rotate = Quaternion::from_angle_x(rad(hover));
 
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             GameEguiCallback::new(
                 InstanceData::default()
-                    .with_model_matrix(matrix)
-                    .with_light_pos(point3(0.0, 0.0, -2.0)),
+                    .with_model_matrix(projection * Matrix4::from(rotate))
+                    .with_light_pos(point3(0.0, -1.0, -2.0)),
                 model,
             ),
         ));

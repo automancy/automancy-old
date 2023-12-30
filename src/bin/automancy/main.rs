@@ -10,7 +10,6 @@ use std::{env, panic};
 
 use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
-use egui::epaint::TessellationOptions;
 use egui::{FontData, FontDefinitions};
 use env_logger::Env;
 use futures::executor::block_on;
@@ -143,12 +142,6 @@ fn main() -> eyre::Result<()> {
     let event_loop = EventLoop::new()?;
 
     let egui_context: egui::Context = Default::default();
-    egui_context.memory_mut(|memory| {
-        memory.options.tessellation_options = TessellationOptions {
-            feathering: false,
-            ..memory.options.tessellation_options
-        }
-    });
     egui_extras::install_image_loaders(&egui_context);
 
     let icon = get_icon();
@@ -176,6 +169,7 @@ fn main() -> eyre::Result<()> {
     let mut egui_renderer =
         egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, Some(DEPTH_FORMAT), 1);
     let egui_callback_resources = &mut egui_renderer.callback_resources;
+    egui_callback_resources.insert(setup.start_instant);
     egui_callback_resources.insert(setup.resource_man.clone());
 
     // - render -

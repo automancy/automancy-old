@@ -10,10 +10,12 @@ use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use wgpu::util::DrawIndexedIndirect;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
 use crate::gui::item::{draw_item, SMALL_ITEM_ICON_SIZE};
+use crate::renderer::try_add_animation;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::rendering::InstanceData;
@@ -271,6 +273,15 @@ impl CallbackTrait for GameEguiCallback {
         _egui_encoder: &mut CommandEncoder,
         callback_resources: &mut CallbackResources,
     ) -> Vec<CommandBuffer> {
+        let resource_man = callback_resources
+            .get::<Arc<ResourceManager>>()
+            .unwrap()
+            .clone();
+        let start_instant = *callback_resources.get::<Instant>().unwrap();
+        let animation_map = callback_resources.get_mut::<AnimationMap>().unwrap();
+
+        try_add_animation(&resource_man, start_instant, self.model, animation_map);
+
         callback_resources
             .entry::<Vec<(InstanceData, Id, u32)>>()
             .or_insert_with(Vec::new)
@@ -293,10 +304,11 @@ impl CallbackTrait for GameEguiCallback {
                 .get::<Arc<ResourceManager>>()
                 .unwrap()
                 .clone();
-            let animation_map = callback_resources.get::<AnimationMap>().unwrap().clone();
+
+            let animation_map = callback_resources.get::<AnimationMap>().unwrap();
 
             let (instances, draws, _count) =
-                gpu::indirect_instance(&resource_man, &instances, false, &animation_map);
+                gpu::indirect_instance(&resource_man, &instances, false, animation_map);
 
             {
                 let gui_resources = callback_resources.get_mut::<GuiResources>().unwrap();

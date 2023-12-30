@@ -36,6 +36,7 @@ use automancy_defs::rendering::{lerp_coords_to_pixel, make_line, GameUBO, Instan
 use automancy_defs::slice_group_by::GroupBy;
 use automancy_defs::{bytemuck, colors, math};
 use automancy_resources::data::Data;
+use automancy_resources::ResourceManager;
 
 use crate::setup::GameSetup;
 
@@ -81,13 +82,16 @@ fn get_angle_from_direction(target: &Data) -> Option<Float> {
     }
 }
 
-fn try_add_animation(setup: &GameSetup, model: Id, animation_map: &mut AnimationMap) {
+pub fn try_add_animation(
+    resource_man: &ResourceManager,
+    start_instant: Instant,
+    model: Id,
+    animation_map: &mut AnimationMap,
+) {
     if !animation_map.contains_key(&model) {
-        let elapsed = Instant::now()
-            .duration_since(setup.start_instant)
-            .as_secs_f32();
+        let elapsed = Instant::now().duration_since(start_instant).as_secs_f32();
 
-        let anims = setup.resource_man.all_models[&model]
+        let anims = resource_man.all_models[&model]
             .1
             .iter()
             .map(|anim| {
@@ -270,7 +274,12 @@ impl Renderer {
                 instance, model, ..
             } in instances.into_values()
             {
-                try_add_animation(setup, model, &mut animation_map);
+                try_add_animation(
+                    &setup.resource_man,
+                    setup.start_instant,
+                    model,
+                    &mut animation_map,
+                );
 
                 map.entry(model)
                     .or_insert_with(|| Vec::with_capacity(32))
@@ -281,11 +290,21 @@ impl Renderer {
         };
 
         for (_, model) in &extra_instances {
-            try_add_animation(setup, *model, &mut animation_map);
+            try_add_animation(
+                &setup.resource_man,
+                setup.start_instant,
+                *model,
+                &mut animation_map,
+            );
         }
 
         for (_, model) in &in_world_item_instances {
-            try_add_animation(setup, *model, &mut animation_map);
+            try_add_animation(
+                &setup.resource_man,
+                setup.start_instant,
+                *model,
+                &mut animation_map,
+            );
         }
 
         let mut extra_instances = extra_instances
