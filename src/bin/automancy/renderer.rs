@@ -153,25 +153,25 @@ impl Renderer {
 
         let (mut instances, all_data) = map_render_info;
 
-        for (coord, instance) in instances.iter_mut() {
+        for (coord, unit) in instances.iter_mut() {
             if let Some(theta) = all_data
                 .get(coord)
                 .and_then(|data| data.get(&setup.resource_man.registry.data_ids.target))
                 .and_then(get_angle_from_direction)
             {
-                let m = &mut instance.instance.matrix;
-
-                *m = *m * Matrix4::from_angle_z(deg(theta))
+                unit.instance = unit
+                    .instance
+                    .add_model_matrix(Matrix4::from_angle_z(deg(theta)));
             } else if let Some(inactive) = setup
                 .resource_man
                 .registry
                 .tile_data(
-                    instance.tile,
+                    unit.tile,
                     setup.resource_man.registry.data_ids.inactive_model,
                 )
                 .and_then(Data::as_id)
             {
-                instance.model = setup.resource_man.get_model(*inactive);
+                unit.model = setup.resource_man.get_model(*inactive);
             }
         }
 
@@ -182,12 +182,13 @@ impl Renderer {
                 .cloned()
             {
                 extra_instances.push((
-                    InstanceData {
-                        color_offset: colors::RED.to_array(),
-                        light_pos: camera_pos_float,
-                        matrix: make_line(math::hex_to_pixel(*coord), math::hex_to_pixel(*link)),
-                        ..Default::default()
-                    },
+                    InstanceData::default()
+                        .with_color_offset(colors::RED.to_array())
+                        .with_light_pos(camera_pos_float, None)
+                        .with_model_matrix(make_line(
+                            math::hex_to_pixel(*coord),
+                            math::hex_to_pixel(*link),
+                        )),
                     setup.resource_man.registry.model_ids.cube1x1,
                 ));
             }
@@ -221,7 +222,7 @@ impl Renderer {
                             )) * Matrix4::from_angle_z(theta)
                                 * Matrix4::from_scale(0.3),
                         )
-                        .with_light_pos(camera_pos_float);
+                        .with_light_pos(camera_pos_float, None);
                     let model = setup.resource_man.get_item_model(stack.item);
 
                     in_world_item_instances.push((instance, model));
@@ -283,7 +284,7 @@ impl Renderer {
 
                 map.entry(model)
                     .or_insert_with(|| Vec::with_capacity(32))
-                    .push((instance.with_light_pos(camera_pos_float), model, ()))
+                    .push((instance.with_light_pos(camera_pos_float, None), model, ()))
             }
 
             map.into_values().flatten().collect::<Vec<_>>()

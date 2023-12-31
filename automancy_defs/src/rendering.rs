@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use bytemuck::{Pod, Zeroable};
-use cgmath::{point3, vec3, EuclideanSpace, MetricSpace, SquareMatrix};
+use cgmath::{vec3, vec4, EuclideanSpace, Matrix, MetricSpace, SquareMatrix};
 use egui::NumExt;
 use egui_wgpu::wgpu::{
     vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode,
@@ -13,7 +13,9 @@ use hexagon_tiles::traits::HexRound;
 
 use crate::coord::TileCoord;
 use crate::math;
-use crate::math::{direction_to_angle, DPoint2, Double, Float, Matrix4, Point3, Vector3};
+use crate::math::{
+    direction_to_angle, DPoint2, Double, Float, Matrix3, Matrix4, Point3, Vector3, Vector4,
+};
 
 pub fn lerp_coords_to_pixel(a: TileCoord, b: TileCoord, t: Double) -> DPoint2 {
     let a = FractionalHex::new(a.q() as Double, a.r() as Double);
@@ -69,10 +71,11 @@ impl Vertex {
 
 #[derive(Clone, Copy, Debug)]
 pub struct InstanceData {
-    pub color_offset: VertexColor,
-    pub alpha: Float,
-    pub light_pos: Point3,
-    pub matrix: Matrix4,
+    color_offset: VertexColor,
+    alpha: Float,
+    light_pos: Vector4,
+    model_matrix: Matrix4,
+    projection: Option<Matrix4>,
 }
 
 impl Default for InstanceData {
@@ -80,8 +83,9 @@ impl Default for InstanceData {
         Self {
             color_offset: [0.0, 0.0, 0.0, 0.0],
             alpha: 1.0,
-            light_pos: point3(0.0, 0.0, 0.0),
-            matrix: Matrix4::identity(),
+            light_pos: vec4(0.0, 0.0, 0.0, 0.0),
+            model_matrix: Matrix4::identity(),
+            projection: None,
         }
     }
 }
@@ -89,7 +93,28 @@ impl Default for InstanceData {
 impl InstanceData {
     #[inline]
     pub fn add_model_matrix(mut self, model_matrix: Matrix4) -> Self {
-        self.matrix = self.matrix * model_matrix;
+        self.model_matrix = self.model_matrix * model_matrix;
+
+        self
+    }
+
+    #[inline]
+    pub fn add_translation(mut self, translation: Vector3) -> Self {
+        self.model_matrix = self.model_matrix * Matrix4::from_translation(translation);
+
+        self
+    }
+
+    #[inline]
+    pub fn add_scale(mut self, scale: Float) -> Self {
+        self.model_matrix = self.model_matrix * Matrix4::from_scale(scale);
+
+        self
+    }
+
+    #[inline]
+    pub fn with_model_matrix(mut self, model_matrix: Matrix4) -> Self {
+        self.model_matrix = model_matrix;
 
         self
     }
@@ -102,27 +127,6 @@ impl InstanceData {
     }
 
     #[inline]
-    pub fn add_translation(mut self, translation: Vector3) -> Self {
-        self.matrix = self.matrix * Matrix4::from_translation(translation);
-
-        self
-    }
-
-    #[inline]
-    pub fn add_scale(mut self, scale: Float) -> Self {
-        self.matrix = self.matrix * Matrix4::from_scale(scale);
-
-        self
-    }
-
-    #[inline]
-    pub fn with_model_matrix(mut self, model_matrix: Matrix4) -> Self {
-        self.matrix = model_matrix;
-
-        self
-    }
-
-    #[inline]
     pub fn with_alpha(mut self, alpha: Float) -> Self {
         self.alpha = alpha;
 
@@ -130,8 +134,8 @@ impl InstanceData {
     }
 
     #[inline]
-    pub fn with_light_pos(mut self, light_pos: Point3) -> Self {
-        self.light_pos = light_pos;
+    pub fn with_light_pos(mut self, light_pos: Point3, light_strength: Option<Float>) -> Self {
+        self.light_pos = light_pos.to_vec().extend(light_strength.unwrap_or(1.0));
 
         self
     }
@@ -142,6 +146,13 @@ impl InstanceData {
 
         self
     }
+
+    #[inline]
+    pub fn with_projection(mut self, projection: Matrix4) -> Self {
+        self.projection = Some(projection);
+
+        self
+    }
 }
 
 #[repr(C)]
@@ -149,17 +160,37 @@ impl InstanceData {
 pub struct RawInstanceData {
     color_offset: VertexColor,
     alpha: Float,
-    light_pos: VertexPos,
-    matrix: RawMat4,
+    light_pos: [Float; 4],
+    model_matrix: RawMat4,
+    normal_matrix: RawMat3,
 }
 
 impl From<InstanceData> for RawInstanceData {
     fn from(value: InstanceData) -> Self {
+        let model_matrix = if let Some(projection) = value.projection {
+            projection * value.model_matrix
+        } else {
+            value.model_matrix
+        };
+
+        let invert_transpose = value.model_matrix.invert().unwrap().transpose();
+
         Self {
             color_offset: value.color_offset,
             alpha: value.alpha,
-            light_pos: [value.light_pos.x, value.light_pos.y, value.light_pos.z],
-            matrix: value.matrix.into(),
+            light_pos: [
+                value.light_pos.x,
+                value.light_pos.y,
+                value.light_pos.z,
+                value.light_pos.w,
+            ],
+            model_matrix: model_matrix.into(),
+            normal_matrix: Matrix3::from_cols(
+                invert_transpose.x.truncate(),
+                invert_transpose.y.truncate(),
+                invert_transpose.z.truncate(),
+            )
+            .into(),
         }
     }
 }
@@ -169,11 +200,14 @@ impl RawInstanceData {
         static ATTRIBUTES: &[VertexAttribute] = &vertex_attr_array![
             3 => Float32x4,
             4 => Float32,
-            5 => Float32x3,
+            5 => Float32x4,
             6 => Float32x4,
             7 => Float32x4,
             8 => Float32x4,
             9 => Float32x4,
+            10 => Float32x3,
+            11 => Float32x3,
+            12 => Float32x3,
         ];
 
         VertexBufferLayout {

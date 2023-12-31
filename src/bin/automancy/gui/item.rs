@@ -55,7 +55,7 @@ pub fn draw_item(
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             GameEguiCallback::new(
-                InstanceData::default().with_model_matrix(math::view(point3(0.0, 0.0, 1.0))),
+                InstanceData::default().with_projection(math::view(point3(0.0, 0.0, 1.0))),
                 resource_man.get_item_model(stack.item),
             ),
         ));

@@ -22,7 +22,7 @@ fn draw_tile_selection(
 ) {
     let size = ui.available_height();
     let projection =
-        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(point3(0.0, 0.0, 3.0));
+        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(point3(0.0, 0.0, 2.75));
 
     for id in setup.resource_man.ordered_tiles.iter().filter(|id| {
         if Some(&true)
@@ -66,10 +66,10 @@ fn draw_tile_selection(
 
         let hover = if response.hovered() {
             ui.ctx()
-                .animate_value_with_time(ui.next_auto_id(), 0.7, 0.3)
+                .animate_value_with_time(ui.next_auto_id(), 0.75, 0.3)
         } else {
             ui.ctx()
-                .animate_value_with_time(ui.next_auto_id(), 0.2, 0.3)
+                .animate_value_with_time(ui.next_auto_id(), 0.25, 0.3)
         };
         if response.clicked() {
             selection_send.try_send(*id).unwrap();
@@ -81,8 +81,9 @@ fn draw_tile_selection(
             rect,
             GameEguiCallback::new(
                 InstanceData::default()
-                    .with_model_matrix(projection * Matrix4::from(rotate))
-                    .with_light_pos(point3(0.0, -1.0, -2.0)),
+                    .with_model_matrix(Matrix4::from(rotate))
+                    .with_projection(projection)
+                    .with_light_pos(point3(0.0, 4.0, 14.0), None),
                 model,
             ),
         ));

@@ -3,6 +3,7 @@
     function: Some("node"),
     model: "node",
     data: ({
+        "inactive_model": Id("node_inactive"),
         "linked": Bool(true),
         "default_tile": Bool(true),
     }),

@@ -41,7 +41,7 @@ pub struct EventLoopStorage {
     /// fuzzy search engine
     pub fuse: Fuse,
     /// the currently selected tile.
-    pub selected_id: Option<Id>,
+    pub selected_tile: Option<Id>,
     /// the last placed tile, to prevent repeatedly sending place requests
     pub already_placed_at: Option<TileCoord>,
     /// the tile that has its config menu open.
@@ -54,8 +54,8 @@ pub struct EventLoopStorage {
     pub frame_start: Instant,
     /// the elapsed time between each frame
     pub elapsed: Duration,
-    /// the currently selected tiles
-    pub selected_tiles: HashSet<TileCoord>,
+    /// the currently grouped tiles
+    pub grouped_tiles: HashSet<TileCoord>,
     /// the stored initial cursor position, for moving tiles
     pub initial_cursor_position: Option<TileCoord>,
 
@@ -68,14 +68,14 @@ impl Default for EventLoopStorage {
     fn default() -> Self {
         Self {
             fuse: Fuse::default(),
-            selected_id: None,
+            selected_tile: None,
             already_placed_at: None,
             config_open: None,
             tag_cache: Default::default(),
             linking_tile: None,
             frame_start: Instant::now(),
             elapsed: Default::default(),
-            selected_tiles: Default::default(),
+            grouped_tiles: Default::default(),
             initial_cursor_position: None,
             take_item_animations: Default::default(),
 
@@ -186,10 +186,10 @@ fn render(
                         if let Ok(Some(id)) = selection_recv.try_next() {
                             loop_store.already_placed_at = None;
 
-                            if loop_store.selected_id == Some(id) {
-                                loop_store.selected_id = None;
+                            if loop_store.selected_tile == Some(id) {
+                                loop_store.selected_tile = None;
                             } else {
-                                loop_store.selected_id = Some(id);
+                                loop_store.selected_tile = Some(id);
                             }
                         }
 
@@ -200,22 +200,25 @@ fn render(
                         );
                         let cursor_pos = point2(cursor_pos.x, cursor_pos.y);
 
-                        if let Some(id) = loop_store.selected_id {
+                        if let Some(id) = loop_store.selected_tile {
                             if let Some(tile) = setup.resource_man.registry.tile(id) {
                                 gui.context.layer_painter(LayerId::background()).add(
                                     egui_wgpu::Callback::new_paint_callback(
                                         gui.context.screen_rect(),
                                         GameEguiCallback::new(
-                                            InstanceData {
-                                                alpha: 0.6,
-                                                matrix: setup.camera.get_matrix().cast().unwrap()
-                                                    * Matrix4::from_translation(vec3(
+                                            InstanceData::default()
+                                                .with_alpha(0.6)
+                                                .with_light_pos(camera_pos_float, None)
+                                                .with_projection(
+                                                    setup.camera.get_matrix().cast().unwrap(),
+                                                )
+                                                .with_model_matrix(Matrix4::from_translation(
+                                                    vec3(
                                                         cursor_pos.x as Float,
                                                         cursor_pos.y as Float,
                                                         FAR as Float,
-                                                    )),
-                                                ..Default::default()
-                                            },
+                                                    ),
+                                                )),
                                             tile.model,
                                         ),
                                     ),
@@ -225,12 +228,13 @@ fn render(
 
                         if let Some(coord) = loop_store.linking_tile {
                             extra_instances.push((
-                                InstanceData {
-                                    color_offset: colors::RED.to_array(),
-                                    light_pos: camera_pos_float,
-                                    matrix: make_line(math::hex_to_pixel(*coord), cursor_pos),
-                                    ..Default::default()
-                                },
+                                InstanceData::default()
+                                    .with_color_offset(colors::RED.to_array())
+                                    .with_light_pos(camera_pos_float, None)
+                                    .with_model_matrix(make_line(
+                                        math::hex_to_pixel(*coord),
+                                        cursor_pos,
+                                    )),
                                 setup.resource_man.registry.model_ids.cube1x1,
                             ));
                         }
@@ -269,8 +273,8 @@ fn render(
 
         tile_tints.insert(setup.camera.pointing_at, colors::RED.with_alpha(0.2));
 
-        for selected in &loop_store.selected_tiles {
-            tile_tints.insert(*selected, colors::ORANGE.with_alpha(0.4));
+        for coord in &loop_store.grouped_tiles {
+            tile_tints.insert(*coord, colors::ORANGE.with_alpha(0.4));
         }
 
         if setup.input_handler.control_held {
@@ -279,21 +283,19 @@ fn render(
 
                 if start != setup.camera.pointing_at {
                     extra_instances.push((
-                        InstanceData {
-                            color_offset: colors::LIGHT_BLUE.to_array(),
-                            light_pos: camera_pos_float,
-                            matrix: make_line(
+                        InstanceData::default()
+                            .with_color_offset(colors::LIGHT_BLUE.to_array())
+                            .with_light_pos(camera_pos_float, None)
+                            .with_model_matrix(make_line(
                                 math::hex_to_pixel(*start),
                                 math::hex_to_pixel(*setup.camera.pointing_at),
-                            ),
-                            ..Default::default()
-                        },
+                            )),
                         setup.resource_man.registry.model_ids.cube1x1,
                     ));
                 }
 
-                for selected in &loop_store.selected_tiles {
-                    let dest = *selected + direction;
+                for coord in &loop_store.grouped_tiles {
+                    let dest = *coord + direction;
                     tile_tints.insert(dest, colors::LIGHT_BLUE.with_alpha(0.3));
                 }
             }
@@ -392,7 +394,7 @@ pub fn on_event(
             1.0, //TODO sensitivity option
         ));
 
-        let ignore_move = loop_store.selected_id.is_some();
+        let ignore_move = loop_store.selected_tile.is_some();
 
         setup.camera.handle_input(&setup.input_handler, ignore_move);
 
@@ -408,7 +410,8 @@ pub fn on_event(
 
         if setup.input_handler.key_active(KeyActions::Escape) {
             // one by one
-            if loop_store.selected_id.take().is_none() && loop_store.linking_tile.take().is_none() {
+            if loop_store.selected_tile.take().is_none() && loop_store.linking_tile.take().is_none()
+            {
                 if loop_store
                     .gui_state
                     .switch_screen_when(&|s| s.screen == Screen::Ingame, Screen::Paused)
@@ -433,7 +436,7 @@ pub fn on_event(
         if setup.input_handler.main_pressed
             || (setup.input_handler.shift_held && setup.input_handler.main_held)
         {
-            if let Some(id) = loop_store.selected_id {
+            if let Some(id) = loop_store.selected_tile {
                 if loop_store.already_placed_at != Some(setup.camera.pointing_at) {
                     let response = block_on(setup.game.call(
                         |reply| GameMsg::PlaceTile {
@@ -539,22 +542,18 @@ pub fn on_event(
                     let direction = setup.camera.pointing_at - start;
 
                     setup.game.send_message(GameMsg::MoveTiles(
-                        loop_store
-                            .selected_tiles
-                            .iter()
-                            .cloned()
-                            .collect::<Vec<_>>(),
+                        loop_store.grouped_tiles.iter().cloned().collect::<Vec<_>>(),
                         direction,
                         true,
                     ))?;
 
-                    let cap = loop_store.selected_tiles.capacity();
+                    let cap = loop_store.grouped_tiles.capacity();
                     for selected in
-                        mem::replace(&mut loop_store.selected_tiles, HashSet::with_capacity(cap))
+                        mem::replace(&mut loop_store.grouped_tiles, HashSet::with_capacity(cap))
                     {
                         let dest = selected + direction;
 
-                        loop_store.selected_tiles.insert(dest);
+                        loop_store.grouped_tiles.insert(dest);
                     }
 
                     loop_store.initial_cursor_position = None;
@@ -566,10 +565,10 @@ pub fn on_event(
             }
 
             if loop_store.initial_cursor_position.is_none() {
-                loop_store.selected_tiles.insert(setup.camera.pointing_at);
+                loop_store.grouped_tiles.insert(setup.camera.pointing_at);
             }
         } else {
-            loop_store.selected_tiles.clear();
+            loop_store.grouped_tiles.clear();
             loop_store.initial_cursor_position = None;
         }
 
