@@ -15,18 +15,21 @@ name = "automancy"
 
 
 
+[profile.dev]
+opt-level = 3
+lto = "off"
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "off"
+
 [profile.release-bin]
 inherits = "release"
 lto = "fat"          # turn on Link-Time Optimizations
 codegen-units = 1    # trade compile time with maximum optimization
 opt-level = "z"      # optimize for size
-
-
-
-[profile]
-dev.opt-level = 3
-dev.lto = "off"
-release.lto = "off"
 
 
 
