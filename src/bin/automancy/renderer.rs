@@ -314,12 +314,14 @@ impl Renderer {
             .collect::<Vec<_>>();
         game_instances.append(&mut extra_instances);
 
-        let in_world_item_instances = in_world_item_instances
+        let mut in_world_item_instances = in_world_item_instances
             .into_iter()
             .map(|(instance, id)| (instance, id, ()))
             .collect::<Vec<_>>();
 
         game_instances.sort_by_key(|v| v.1);
+        in_world_item_instances.sort_by_key(|v| v.1);
+
         self.inner_render(
             setup,
             gui,
