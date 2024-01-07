@@ -48,15 +48,13 @@ pub fn draw_item(
             icon_response
         };
 
-        if !ui.ctx().screen_rect().contains_rect(rect) {
-            return (rect, response);
-        }
-
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             GameEguiCallback::new(
                 InstanceData::default().with_projection(math::view(point3(0.0, 0.0, 1.0))),
                 resource_man.get_item_model(stack.item),
+                rect,
+                ui.ctx().screen_rect(),
             ),
         ));
 

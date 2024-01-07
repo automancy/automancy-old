@@ -161,7 +161,7 @@ impl Renderer {
             {
                 unit.instance = unit
                     .instance
-                    .add_model_matrix(Matrix4::from_angle_z(deg(theta)));
+                    .add_model_matrix_right(Matrix4::from_angle_z(deg(theta)));
             } else if let Some(inactive) = setup
                 .resource_man
                 .registry

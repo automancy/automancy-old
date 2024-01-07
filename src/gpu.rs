@@ -648,7 +648,7 @@ pub fn compile_instances<T: Clone>(
                 {
                     matrix = matrix * anim;
                 }
-                instance = instance.add_model_matrix(matrix);
+                instance = instance.add_model_matrix_right(matrix);
 
                 raw_instances.entry(id).or_insert_with(Vec::new).push((
                     model.index,

@@ -60,6 +60,8 @@ fn take_item_animation(
                     GameEguiCallback::new(
                         InstanceData::default(),
                         setup.resource_man.get_item_model(item),
+                        dst_rect,
+                        ui.ctx().screen_rect(),
                     ),
                 ));
         }

@@ -33,6 +33,14 @@ opt-level = "z"      # optimize for size
 
 
 
+[patch.'https://github.com/emilk/egui.git']
+egui = { git = "https://github.com/msparkles/egui.git", branch = "fix-3759" }
+egui-winit = { git = "https://github.com/msparkles/egui.git", branch = "fix-3759" }
+egui-wgpu = { git = "https://github.com/msparkles/egui.git", branch = "fix-3759" }
+egui_extras = { git = "https://github.com/msparkles/egui.git", branch = "fix-3759" }
+
+
+
 [workspace]
 members = ["build_script", "automancy_defs", "automancy_macros", "automancy_resources"]
 

@@ -220,6 +220,8 @@ fn render(
                                                     ),
                                                 )),
                                             tile.model,
+                                            gui.context.screen_rect(),
+                                            gui.context.screen_rect(),
                                         ),
                                     ),
                                 );

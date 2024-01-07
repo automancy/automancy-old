@@ -92,7 +92,14 @@ impl Default for InstanceData {
 
 impl InstanceData {
     #[inline]
-    pub fn add_model_matrix(mut self, model_matrix: Matrix4) -> Self {
+    pub fn add_model_matrix_left(mut self, model_matrix: Matrix4) -> Self {
+        self.model_matrix = model_matrix * self.model_matrix;
+
+        self
+    }
+
+    #[inline]
+    pub fn add_model_matrix_right(mut self, model_matrix: Matrix4) -> Self {
         self.model_matrix = self.model_matrix * model_matrix;
 
         self
@@ -150,6 +157,28 @@ impl InstanceData {
     #[inline]
     pub fn with_projection(mut self, projection: Matrix4) -> Self {
         self.projection = Some(projection);
+
+        self
+    }
+
+    #[inline]
+    pub fn add_projection_right(mut self, projection: Matrix4) -> Self {
+        if let Some(s) = self.projection {
+            self.projection = Some(s * projection);
+        } else {
+            self.projection = Some(projection);
+        }
+
+        self
+    }
+
+    #[inline]
+    pub fn add_projection_left(mut self, projection: Matrix4) -> Self {
+        if let Some(s) = self.projection {
+            self.projection = Some(projection * s);
+        } else {
+            self.projection = Some(projection);
+        }
 
         self
     }

@@ -5,9 +5,9 @@ use std::f32::consts::FRAC_PI_4;
 
 use automancy_defs::cgmath::{point3, Rotation3};
 use automancy_defs::id::Id;
-use automancy_defs::math;
 use automancy_defs::math::{rad, z_far, z_near, Matrix4, Quaternion};
 use automancy_defs::rendering::InstanceData;
+use automancy_defs::{log, math};
 use automancy_resources::data::{Data, DataMap};
 
 use crate::gui::{default_frame, GameEguiCallback};
@@ -53,9 +53,6 @@ fn draw_tile_selection(
         let model = setup.resource_man.get_model(tile.model);
 
         let (ui_id, rect) = ui.allocate_space(vec2(size, size));
-        if !ui.ctx().screen_rect().contains_rect(rect) {
-            continue;
-        }
 
         let response = ui.interact(rect, ui_id, Sense::click());
 
@@ -85,6 +82,8 @@ fn draw_tile_selection(
                     .with_projection(projection)
                     .with_light_pos(point3(0.0, 4.0, 14.0), None),
                 model,
+                rect,
+                ui.ctx().screen_rect(),
             ),
         ));
     }
@@ -106,7 +105,7 @@ pub fn tile_selections(
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.set_height(80.0);
+                        ui.set_height(90.0);
 
                         draw_tile_selection(setup, ui, selection_send, game_data);
                     });

@@ -3,7 +3,7 @@ use automancy::gpu::{AnimationMap, GlobalBuffers, GuiResources};
 
 use egui::epaint::Shadow;
 use egui::{
-    Frame, Margin, PaintCallbackInfo, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText,
+    Frame, Margin, PaintCallbackInfo, Rect, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText,
 };
 use egui_wgpu::{CallbackResources, CallbackTrait};
 use enum_map::{enum_map, Enum, EnumMap};
@@ -16,10 +16,11 @@ use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass
 
 use crate::gui::item::{draw_item, SMALL_ITEM_ICON_SIZE};
 use crate::renderer::try_add_animation;
+use automancy_defs::cgmath::{vec3, Matrix4};
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::rendering::InstanceData;
-use automancy_defs::{bytemuck, colors};
+use automancy_defs::{bytemuck, colors, log};
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
 
@@ -251,11 +252,21 @@ pub struct GameEguiCallback {
 }
 
 impl GameEguiCallback {
-    pub fn new(instance: InstanceData, model: Id) -> Self {
+    pub fn new(instance: InstanceData, model: Id, rect: Rect, screen_rect: Rect) -> Self {
         let mut counter = INDEX_COUNTER.lock().unwrap();
 
+        let inside = screen_rect.intersect(rect);
+
+        let sx = rect.width() / inside.width();
+        let sy = rect.height() / inside.height();
+
+        let dx = -(1.0 - sx);
+        let dy = -(1.0 - sy);
+
         let result = Self {
-            instance,
+            instance: instance
+                .add_projection_left(Matrix4::from_translation(vec3(dx, dy, 0.0)))
+                .add_projection_right(Matrix4::from_nonuniform_scale(sx, sy, 1.0)),
             model,
             index: *counter,
         };
@@ -336,7 +347,7 @@ impl CallbackTrait for GameEguiCallback {
         if let Some(draws) =
             callback_resources.get::<HashMap<Id, Vec<(DrawIndexedIndirect, u32)>>>()
         {
-            let viewport = info.viewport * info.pixels_per_point;
+            let viewport = info.viewport_in_pixels();
             let gui_resources = callback_resources.get::<GuiResources>().unwrap();
             let global_buffers = callback_resources.get::<Arc<GlobalBuffers>>().unwrap();
 
@@ -347,10 +358,10 @@ impl CallbackTrait for GameEguiCallback {
             render_pass
                 .set_index_buffer(global_buffers.index_buffer.slice(..), IndexFormat::Uint16);
             render_pass.set_viewport(
-                viewport.left(),
-                viewport.top(),
-                viewport.width(),
-                viewport.height(),
+                viewport.left_px as f32,
+                viewport.top_px as f32,
+                viewport.width_px as f32,
+                viewport.height_px as f32,
                 1.0,
                 0.0,
             );
