@@ -505,16 +505,13 @@ impl Actor for Game {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             SupervisionEvent::ActorPanicked(_dead_actor, panic_msg) => {
-                panic!(
-                    "game: panicked because tile entity panicked with '{}'",
-                    panic_msg
-                );
+                panic!("Panicked because tile entity panicked with '{}'", panic_msg);
             }
             SupervisionEvent::ActorTerminated(dead_actor, _tile_state, reason) => {
-                log::debug!("game: tile entity {dead_actor:?} has been removed. reason (if any): {reason:?}")
+                log::debug!("Tile entity {dead_actor:?} has been removed. Reason: {reason:?}")
             }
             other => {
-                log::debug!("game: supervision event: {other}")
+                log::debug!("Supervision event: {other}")
             }
         }
         Ok(())
