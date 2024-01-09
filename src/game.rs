@@ -48,7 +48,7 @@ pub struct TransactionRecord {
 #[derive(Debug, Clone, Copy)]
 pub struct RenderUnit {
     pub instance: InstanceData,
-    pub tile: Id,
+    pub tile_id: Id,
     pub model: Id,
 }
 
@@ -247,7 +247,8 @@ impl Actor for Game {
                             .flat_map(|(coord, id)| {
                                 self.resource_man
                                     .registry
-                                    .tile(*id)
+                                    .tiles
+                                    .get(id)
                                     .map(|tile| self.resource_man.get_model(tile.model))
                                     .map(|model| {
                                         let p = math::hex_to_pixel((*coord).into());
@@ -263,7 +264,7 @@ impl Actor for Game {
                                                             FAR as Float,
                                                         ),
                                                     )),
-                                                tile: *id,
+                                                tile_id: *id,
                                                 model,
                                             },
                                         )

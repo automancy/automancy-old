@@ -104,7 +104,7 @@ pub struct ResourceManager {
     pub translates: Translate,
     pub audio: HashMap<SharedStr, StaticSoundData>,
     pub shaders: HashMap<SharedStr, String>,
-    pub functions: HashMap<Id, (AST, Scope<'static>)>,
+    pub functions: HashMap<Id, (AST, Scope<'static>, String)>,
     pub fonts: BTreeMap<SharedStr, Font>, // yes this does need to be a BTreeMap
 
     pub ordered_tiles: Vec<Id>,
@@ -217,7 +217,8 @@ impl ResourceManager {
                     .as_ref()
                     .unwrap()
                     .registry
-                    .script(Id::from(id))
+                    .scripts
+                    .get(&Id::from(id))
                     .cloned()
                 {
                     Some(v) => Dynamic::from(v),
@@ -231,7 +232,8 @@ impl ResourceManager {
                     .as_ref()
                     .unwrap()
                     .registry
-                    .tile(Id::from(id))
+                    .tiles
+                    .get(&Id::from(id))
                     .cloned()
                 {
                     Some(v) => Dynamic::from(v),
@@ -245,7 +247,8 @@ impl ResourceManager {
                     .as_ref()
                     .unwrap()
                     .registry
-                    .item(Id::from(id))
+                    .items
+                    .get(&Id::from(id))
                     .cloned()
                 {
                     Some(v) => Dynamic::from(v),
@@ -259,7 +262,8 @@ impl ResourceManager {
                     .clone()
                     .unwrap()
                     .registry
-                    .tag(Id::from(id))
+                    .tags
+                    .get(&Id::from(id))
                     .cloned()
                 {
                     Some(v) => Dynamic::from(v),

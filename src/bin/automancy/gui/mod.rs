@@ -20,7 +20,7 @@ use automancy_defs::cgmath::{vec3, Matrix4};
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::rendering::InstanceData;
-use automancy_defs::{bytemuck, colors, log};
+use automancy_defs::{bytemuck, colors};
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
 

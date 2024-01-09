@@ -93,23 +93,22 @@ pub fn player(setup: &GameSetup, loop_store: &mut EventLoopStorage, context: &Co
         .unwrap()
         {
             ScrollArea::vertical().show(ui, |ui| {
-                for (item, amount) in inventory.iter().flat_map(|(id, amount)| {
-                    setup
-                        .resource_man
-                        .registry
-                        .item(*id)
-                        .map(|item| (*item, *amount))
-                }) {
+                for (id, amount) in inventory.iter() {
+                    let item = setup.resource_man.registry.items.get(id).unwrap();
+
                     let (dst_rect, _) = draw_item(
                         ui,
                         &setup.resource_man,
                         None,
-                        ItemStack { item, amount },
+                        ItemStack {
+                            item: *item,
+                            amount: *amount,
+                        },
                         MEDIUM_ITEM_ICON_SIZE,
                         true,
                     );
 
-                    take_item_animation(ui, setup, loop_store, item, dst_rect);
+                    take_item_animation(ui, setup, loop_store, *item, dst_rect);
                 }
             });
         }

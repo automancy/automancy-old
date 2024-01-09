@@ -23,50 +23,49 @@ pub fn info(setup: &GameSetup, context: &Context) {
     .show(context, |ui| {
         ui.colored_label(colors::DARK_GRAY, setup.camera.pointing_at.to_string());
 
-        let tile_entity = block_on(setup.game.call(
-            |reply| GameMsg::GetTileEntity(setup.camera.pointing_at, reply),
-            None,
-        ))
-        .unwrap()
-        .unwrap();
-
-        let tile = block_on(setup.game.call(
+        let Some(id) = block_on(setup.game.call(
             |reply| GameMsg::GetTile(setup.camera.pointing_at, reply),
             None,
         ))
         .unwrap()
-        .unwrap();
+        .unwrap() else {
+            return;
+        };
 
-        if let Some((tile_entity, id)) = tile_entity.zip(tile) {
-            ui.label(setup.resource_man.tile_name(&id));
+        ui.label(setup.resource_man.tile_name(&id));
 
-            let data = block_on(tile_entity.call(TileEntityMsg::GetData, None))
-                .unwrap()
-                .unwrap();
+        let Some(entity) = block_on(setup.game.call(
+            |reply| GameMsg::GetTileEntity(setup.camera.pointing_at, reply),
+            None,
+        ))
+        .unwrap()
+        .unwrap() else {
+            return;
+        };
 
-            if let Some(inventory) = data
-                .get(&setup.resource_man.registry.data_ids.buffer)
-                .and_then(Data::as_inventory)
-                .cloned()
-            {
-                for (item, amount) in inventory.iter().flat_map(|(id, amount)| {
-                    setup
-                        .resource_man
-                        .registry
-                        .item(*id)
-                        .map(|item| (*item, *amount))
-                }) {
-                    draw_item(
-                        ui,
-                        &setup.resource_man,
-                        None,
-                        ItemStack { item, amount },
-                        SMALL_ITEM_ICON_SIZE,
-                        true,
-                    );
-                }
+        let data = block_on(entity.call(TileEntityMsg::GetData, None))
+            .unwrap()
+            .unwrap();
+
+        if let Some(Data::Inventory(inventory)) =
+            data.get(&setup.resource_man.registry.data_ids.buffer)
+        {
+            for (id, amount) in inventory.iter() {
+                let item = setup.resource_man.registry.items.get(id).unwrap();
+
+                draw_item(
+                    ui,
+                    &setup.resource_man,
+                    None,
+                    ItemStack {
+                        item: *item,
+                        amount: *amount,
+                    },
+                    SMALL_ITEM_ICON_SIZE,
+                    true,
+                );
             }
-            //ui.label(format!("State: {}", ask(sys, &game, )))
         }
+        //ui.label(format!("State: {}", ask(sys, &game, )))
     });
 }

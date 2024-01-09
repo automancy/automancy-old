@@ -10,6 +10,43 @@ fn function_id() {
     "machine"
 }
 
+fn handle_tick(input) {
+    let target = this.data[TARGET];
+
+    if target == () {
+        return;
+    }
+
+    let coord = input.coord + target;
+
+    let script = this.data[SCRIPT]?.as_script();
+    if script == () {
+        return;
+    }
+
+    let outputs = script.instructions.outputs;
+    let inputs = script.instructions.inputs;
+
+    if inputs == () {
+        return ["make_transaction", coord, input.id, input.coord, outputs];
+    }
+
+    let buffer = this.data[BUFFER];
+    if buffer == () {
+        return;
+    }
+
+    for input in inputs {
+        let stored = buffer[input.item];
+
+        if stored < input.amount {
+            return;
+        }
+    }
+
+    ["make_transaction", coord, input.id, input.coord, outputs]
+}
+
 fn handle_transaction(input) {
     let inputs = this.data[SCRIPT]?.as_script()?.instructions?.inputs;
     if inputs == () {
@@ -35,43 +72,6 @@ fn handle_transaction(input) {
     this.data[BUFFER] = buffer;
 
     return ["consume", inserting]
-}
-
-fn handle_tick(input) {
-    let target = this.data[TARGET];
-
-    if target == () {
-        return;
-    }
-
-    let coord = input.coord + target;
-
-    let script = this.data[SCRIPT]?.as_script();
-    if script == () {
-        return;
-    }
-    
-    let outputs = script.instructions.outputs;
-    let inputs = script.instructions.inputs;
-
-    if inputs == () {
-        return ["make_transaction", coord, input.id, input.coord, outputs];
-    }
-
-    let buffer = this.data[BUFFER];
-    if buffer == () {
-        return;
-    }
-
-    for input in inputs {
-        let stored = buffer[input.item];
-
-        if stored < input.amount {
-            return;
-        }
-    }
-
-    ["make_transaction", coord, input.id, input.coord, outputs]
 }
 
 fn handle_transaction_result(input) {

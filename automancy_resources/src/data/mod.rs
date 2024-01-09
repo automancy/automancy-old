@@ -30,123 +30,56 @@ pub enum Data {
 }
 
 impl Data {
-    /// Gets the default Inventory.
-    pub fn new_inventory() -> Self {
-        Self::Inventory(Default::default())
-    }
-
-    /// Gets the default VecCoord.
-    pub fn new_vec_coord() -> Self {
-        Self::VecCoord(Default::default())
-    }
-
-    pub fn as_inventory_mut(&mut self) -> Option<&mut Inventory> {
+    pub fn into_inventory(self) -> Option<Inventory> {
         if let Self::Inventory(v) = self {
             return Some(v);
         }
         None
     }
 
-    pub fn as_coord_mut(&mut self) -> Option<&mut TileCoord> {
+    pub fn into_coord(self) -> Option<TileCoord> {
         if let Self::Coord(v) = self {
             return Some(v);
         }
         None
     }
 
-    pub fn as_bool_mut(&mut self) -> Option<&mut bool> {
+    pub fn into_bool(self) -> Option<bool> {
         if let Self::Bool(v) = self {
             return Some(v);
         }
         None
     }
 
-    pub fn as_vec_coord_mut(&mut self) -> Option<&mut Vec<TileCoord>> {
+    pub fn into_vec_coord(self) -> Option<Vec<TileCoord>> {
         if let Self::VecCoord(v) = self {
             return Some(v);
         }
         None
     }
 
-    /// Gets a mutable reference to the tile's ID, or None.
-    pub fn as_id_mut(&mut self) -> Option<&mut Id> {
+    pub fn into_id(self) -> Option<Id> {
         if let Self::Id(v) = self {
             return Some(v);
         }
         None
     }
 
-    pub fn as_vec_id_mut(&mut self) -> Option<&mut Vec<Id>> {
+    pub fn into_vec_id(self) -> Option<Vec<Id>> {
         if let Self::VecId(v) = self {
             return Some(v);
         }
         None
     }
 
-    pub fn as_set_id_mut(&mut self) -> Option<&mut HashSet<Id>> {
+    pub fn into_set_id(self) -> Option<HashSet<Id>> {
         if let Self::SetId(v) = self {
             return Some(v);
         }
         None
     }
 
-    pub fn as_amount_mut(&mut self) -> Option<&mut ItemAmount> {
-        if let Self::Amount(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_inventory(&self) -> Option<&Inventory> {
-        if let Self::Inventory(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_coord(&self) -> Option<&TileCoord> {
-        if let Self::Coord(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_bool(&self) -> Option<&bool> {
-        if let Self::Bool(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_vec_coord(&self) -> Option<&Vec<TileCoord>> {
-        if let Self::VecCoord(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_id(&self) -> Option<&Id> {
-        if let Self::Id(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_vec_id(&self) -> Option<&Vec<Id>> {
-        if let Self::VecId(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_set_id(&self) -> Option<&HashSet<Id>> {
-        if let Self::SetId(v) = self {
-            return Some(v);
-        }
-        None
-    }
-
-    pub fn as_amount(&self) -> Option<&ItemAmount> {
+    pub fn into_amount(self) -> Option<ItemAmount> {
         if let Self::Amount(v) = self {
             return Some(v);
         }
@@ -267,11 +200,13 @@ impl DataMap {
         let ty = ty.to_lowercase();
 
         match ty.as_str() {
-            "inventory" => Some(Data::new_inventory()),
-            "veccoord" => Some(Data::new_vec_coord()),
+            "inventory" => Some(Data::Inventory(Default::default())),
+            "veccoord" => Some(Data::VecCoord(Default::default())),
             "bool" => Some(Data::Bool(false)),
             "amount" => Some(Data::Amount(0)),
             "coord" => Some(Data::Coord(TileCoord::ZERO)),
+            "setid" => Some(Data::SetId(Default::default())),
+            "vecid" => Some(Data::VecId(Default::default())),
             _ => None,
         }
     }

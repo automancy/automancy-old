@@ -41,7 +41,7 @@ pub struct EventLoopStorage {
     /// fuzzy search engine
     pub fuse: Fuse,
     /// the currently selected tile.
-    pub selected_tile: Option<Id>,
+    pub selected_tile_id: Option<Id>,
     /// the last placed tile, to prevent repeatedly sending place requests
     pub already_placed_at: Option<TileCoord>,
     /// the tile that has its config menu open.
@@ -68,7 +68,7 @@ impl Default for EventLoopStorage {
     fn default() -> Self {
         Self {
             fuse: Fuse::default(),
-            selected_tile: None,
+            selected_tile_id: None,
             already_placed_at: None,
             config_open: None,
             tag_cache: Default::default(),
@@ -186,10 +186,10 @@ fn render(
                         if let Ok(Some(id)) = selection_recv.try_next() {
                             loop_store.already_placed_at = None;
 
-                            if loop_store.selected_tile == Some(id) {
-                                loop_store.selected_tile = None;
+                            if loop_store.selected_tile_id == Some(id) {
+                                loop_store.selected_tile_id = None;
                             } else {
-                                loop_store.selected_tile = Some(id);
+                                loop_store.selected_tile_id = Some(id);
                             }
                         }
 
@@ -200,32 +200,31 @@ fn render(
                         );
                         let cursor_pos = point2(cursor_pos.x, cursor_pos.y);
 
-                        if let Some(id) = loop_store.selected_tile {
-                            if let Some(tile) = setup.resource_man.registry.tile(id) {
-                                gui.context.layer_painter(LayerId::background()).add(
-                                    egui_wgpu::Callback::new_paint_callback(
+                        if let Some(tile) = loop_store
+                            .selected_tile_id
+                            .and_then(|id| setup.resource_man.registry.tiles.get(&id))
+                        {
+                            gui.context.layer_painter(LayerId::background()).add(
+                                egui_wgpu::Callback::new_paint_callback(
+                                    gui.context.screen_rect(),
+                                    GameEguiCallback::new(
+                                        InstanceData::default()
+                                            .with_alpha(0.6)
+                                            .with_light_pos(camera_pos_float, None)
+                                            .with_projection(
+                                                setup.camera.get_matrix().cast().unwrap(),
+                                            )
+                                            .with_model_matrix(Matrix4::from_translation(vec3(
+                                                cursor_pos.x as Float,
+                                                cursor_pos.y as Float,
+                                                FAR as Float,
+                                            ))),
+                                        tile.model,
                                         gui.context.screen_rect(),
-                                        GameEguiCallback::new(
-                                            InstanceData::default()
-                                                .with_alpha(0.6)
-                                                .with_light_pos(camera_pos_float, None)
-                                                .with_projection(
-                                                    setup.camera.get_matrix().cast().unwrap(),
-                                                )
-                                                .with_model_matrix(Matrix4::from_translation(
-                                                    vec3(
-                                                        cursor_pos.x as Float,
-                                                        cursor_pos.y as Float,
-                                                        FAR as Float,
-                                                    ),
-                                                )),
-                                            tile.model,
-                                            gui.context.screen_rect(),
-                                            gui.context.screen_rect(),
-                                        ),
+                                        gui.context.screen_rect(),
                                     ),
-                                );
-                            }
+                                ),
+                            );
                         }
 
                         if let Some(coord) = loop_store.linking_tile {
@@ -330,6 +329,71 @@ fn render(
     result
 }
 
+fn on_link_tile(setup: &mut GameSetup, linking_tile: TileCoord) {
+    let Some(id) = block_on(setup.game.call(
+        |reply| GameMsg::GetTile(setup.camera.pointing_at, reply),
+        None,
+    ))
+    .unwrap()
+    .unwrap() else {
+        return;
+    };
+
+    let Some(entity) = block_on(setup.game.call(
+        |reply| GameMsg::GetTileEntity(setup.camera.pointing_at, reply),
+        None,
+    ))
+    .unwrap()
+    .unwrap() else {
+        return;
+    };
+
+    let Some(tile) = setup.resource_man.registry.tiles.get(&id) else {
+        return;
+    };
+
+    if tile
+        .data
+        .get(&setup.resource_man.registry.data_ids.linked)
+        .cloned()
+        .and_then(Data::into_bool)
+        .unwrap_or(false)
+    {
+        let old = block_on(entity.call(
+            |reply| TileEntityMsg::GetDataValue(setup.resource_man.registry.data_ids.link, reply),
+            None,
+        ))
+        .unwrap()
+        .unwrap();
+
+        if old.is_some() {
+            entity
+                .send_message(TileEntityMsg::RemoveData(
+                    setup.resource_man.registry.data_ids.link,
+                ))
+                .unwrap();
+
+            setup
+                .audio_man
+                .play(setup.resource_man.audio["click"].clone())
+                .unwrap();
+            // TODO click2
+        } else {
+            entity
+                .send_message(TileEntityMsg::SetDataValue(
+                    setup.resource_man.registry.data_ids.link,
+                    Data::Coord(linking_tile),
+                ))
+                .unwrap();
+
+            setup
+                .audio_man
+                .play(setup.resource_man.audio["click"].clone())
+                .unwrap();
+        }
+    }
+}
+
 /// Triggers every time the event loop is run once.
 pub fn on_event(
     setup: &mut GameSetup,
@@ -396,7 +460,7 @@ pub fn on_event(
             1.0, //TODO sensitivity option
         ));
 
-        let ignore_move = loop_store.selected_tile.is_some();
+        let ignore_move = loop_store.selected_tile_id.is_some();
 
         setup.camera.handle_input(&setup.input_handler, ignore_move);
 
@@ -412,7 +476,8 @@ pub fn on_event(
 
         if setup.input_handler.key_active(KeyActions::Escape) {
             // one by one
-            if loop_store.selected_tile.take().is_none() && loop_store.linking_tile.take().is_none()
+            if loop_store.selected_tile_id.take().is_none()
+                && loop_store.linking_tile.take().is_none()
             {
                 if loop_store
                     .gui_state
@@ -438,7 +503,7 @@ pub fn on_event(
         if setup.input_handler.main_pressed
             || (setup.input_handler.shift_held && setup.input_handler.main_held)
         {
-            if let Some(id) = loop_store.selected_tile {
+            if let Some(id) = loop_store.selected_tile_id {
                 if loop_store.already_placed_at != Some(setup.camera.pointing_at) {
                     let response = block_on(setup.game.call(
                         |reply| GameMsg::PlaceTile {
@@ -475,57 +540,7 @@ pub fn on_event(
 
         if !setup.input_handler.control_held && setup.input_handler.alternate_pressed {
             if let Some(linking_tile) = loop_store.linking_tile {
-                let tile = block_on(setup.game.call(
-                    |reply| GameMsg::GetTile(setup.camera.pointing_at, reply),
-                    None,
-                ))?
-                .unwrap();
-
-                let tile_entity = block_on(setup.game.call(
-                    |reply| GameMsg::GetTileEntity(setup.camera.pointing_at, reply),
-                    None,
-                ))?
-                .unwrap();
-
-                if let Some((linked, tile_entity)) = tile
-                    .and_then(|id| {
-                        resource_man
-                            .registry
-                            .tile_data(id, resource_man.registry.data_ids.linked)
-                            .and_then(Data::as_bool)
-                            .cloned()
-                    })
-                    .zip(tile_entity)
-                {
-                    if linked {
-                        let old = block_on(tile_entity.call(
-                            |reply| {
-                                TileEntityMsg::GetDataValue(
-                                    resource_man.registry.data_ids.link,
-                                    reply,
-                                )
-                            },
-                            None,
-                        ))?
-                        .unwrap();
-
-                        if old.is_some() {
-                            tile_entity.send_message(TileEntityMsg::RemoveData(
-                                resource_man.registry.data_ids.link,
-                            ))?;
-
-                            setup.audio_man.play(resource_man.audio["click"].clone())?;
-                            // TODO click2
-                        } else {
-                            tile_entity.send_message(TileEntityMsg::SetDataValue(
-                                resource_man.registry.data_ids.link,
-                                Data::Coord(linking_tile),
-                            ))?;
-
-                            setup.audio_man.play(resource_man.audio["click"].clone())?;
-                        }
-                    }
-                }
+                on_link_tile(setup, linking_tile);
             } else if loop_store.config_open == Some(setup.camera.pointing_at) {
                 loop_store.config_open = None;
                 loop_store

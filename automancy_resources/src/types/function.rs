@@ -48,9 +48,9 @@ impl ResourceManager {
                     });
                 }
 
-                self.functions.insert(id, (ast, scope));
-
                 log::info!("Registered function with id {str_id} ({id:?})");
+
+                self.functions.insert(id, (ast, scope, str_id));
             }
         }
 

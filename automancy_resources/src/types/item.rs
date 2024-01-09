@@ -53,7 +53,7 @@ impl ResourceManager {
                         .ordered_items
                         .iter()
                         .filter(|v| item_match(self, **v, id))
-                        .flat_map(|v| self.registry.item(*v).cloned())
+                        .flat_map(|v| self.registry.items.get(v).cloned())
                         .collect();
 
                     Arc::new(items)

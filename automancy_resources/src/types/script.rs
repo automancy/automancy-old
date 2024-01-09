@@ -50,7 +50,8 @@ impl ResourceManager {
                 v.into_iter()
                     .flat_map(|(id, amount)| {
                         self.registry
-                            .item(id.to_id(&mut self.interner))
+                            .items
+                            .get(&id.to_id(&mut self.interner))
                             .cloned()
                             .map(|item| ItemStack { item, amount })
                     })
@@ -62,7 +63,8 @@ impl ResourceManager {
                 .into_iter()
                 .flat_map(|(id, amount)| {
                     self.registry
-                        .item(id.to_id(&mut self.interner))
+                        .items
+                        .get(&id.to_id(&mut self.interner))
                         .cloned()
                         .map(|item| ItemStack { item, amount })
                 })

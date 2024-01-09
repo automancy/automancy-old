@@ -51,10 +51,10 @@ fn config_target(
 ) {
     let current_target_coord = data
         .get(&setup.resource_man.registry.data_ids.target)
-        .and_then(Data::as_coord)
-        .cloned();
-    let mut new_target_coord = current_target_coord;
+        .cloned()
+        .and_then(Data::into_coord);
 
+    let mut new_target_coord = current_target_coord;
     ui.label(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.tile_config_target]
             .as_str(),
@@ -116,6 +116,7 @@ fn config_linking(
     {
         loop_store.linking_tile = Some(config_open);
     };
+
     ui.label(
         setup.resource_man.translates.gui
             [&setup.resource_man.registry.gui_ids.lbl_link_destination]
@@ -130,29 +131,33 @@ fn config_amount(
     tile_entity: ActorRef<TileEntityMsg>,
     tile_info: &Tile,
 ) {
-    let current_amount = data
-        .get(&setup.resource_man.registry.data_ids.amount)
-        .and_then(Data::as_amount)
-        .cloned()
-        .unwrap_or(0);
-    let mut new_amount = current_amount;
-
-    if let Some(Data::Amount(max_amount)) = tile_info
+    let Some(Data::Amount(max_amount)) = tile_info
         .data
         .get(&setup.resource_man.registry.data_ids.max_amount)
         .cloned()
-    {
-        ui.add(
-            DragValue::new(&mut new_amount)
-                .clamp_range(0..=max_amount)
-                .speed(1.0)
-                .prefix(
-                    setup.resource_man.translates.gui
-                        [&setup.resource_man.registry.gui_ids.lbl_amount]
-                        .to_string(),
-                ),
-        );
-    }
+    else {
+        return;
+    };
+
+    let Data::Amount(current_amount) = data
+        .get(&setup.resource_man.registry.data_ids.amount)
+        .cloned()
+        .unwrap_or(Data::Amount(0))
+    else {
+        return;
+    };
+
+    let mut new_amount = current_amount;
+
+    ui.add(
+        DragValue::new(&mut new_amount)
+            .clamp_range(0..=max_amount)
+            .speed(1.0)
+            .prefix(
+                setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.lbl_amount]
+                    .to_string(),
+            ),
+    );
 
     if new_amount != current_amount {
         tile_entity
@@ -172,42 +177,48 @@ fn takeable_item(
     game_data: &mut DataMap,
     tile_entity: ActorRef<TileEntityMsg>,
 ) {
-    if let Some(inventory) = game_data
+    let Data::Inventory(inventory) = game_data
         .entry(setup.resource_man.registry.data_ids.player_inventory)
-        .or_insert_with(Data::new_inventory)
-        .as_inventory_mut()
-    {
-        for (id, amount) in buffer.clone().into_inner() {
-            let item = *setup.resource_man.registry.item(id).unwrap();
+        .or_insert_with(|| Data::Inventory(Default::default()))
+    else {
+        return;
+    };
 
-            let (rect, response) = draw_item(
-                ui,
-                &setup.resource_man,
-                None,
-                ItemStack { item, amount },
-                MEDIUM_ITEM_ICON_SIZE,
-                true,
-            );
+    let mut dirty = false;
 
-            if response.clicked() {
-                if let Some(amount) = buffer.take(id, amount) {
-                    inventory.add(id, amount);
-                    loop_store
-                        .take_item_animations
-                        .entry(item)
-                        .or_default()
-                        .push_back((Instant::now(), rect));
-                }
+    for (id, amount) in buffer.clone().into_inner() {
+        let item = *setup.resource_man.registry.items.get(&id).unwrap();
+
+        let (rect, response) = draw_item(
+            ui,
+            &setup.resource_man,
+            None,
+            ItemStack { item, amount },
+            MEDIUM_ITEM_ICON_SIZE,
+            true,
+        );
+
+        if response.clicked() {
+            if let Some(amount) = buffer.take(id, amount) {
+                dirty = true;
+                inventory.add(id, amount);
+                loop_store
+                    .take_item_animations
+                    .entry(item)
+                    .or_default()
+                    .push_back((Instant::now(), rect));
             }
         }
     }
 
-    tile_entity
-        .send_message(TileEntityMsg::SetDataValue(
-            setup.resource_man.registry.data_ids.buffer, //TODO rename "tile config"
-            Data::Inventory(buffer),
-        ))
-        .unwrap();
+    if dirty {
+        tile_entity
+            .send_message(TileEntityMsg::SetDataValue(
+                setup.resource_man.registry.data_ids.buffer,
+                Data::Inventory(buffer),
+            ))
+            .unwrap();
+    }
 }
 
 fn config_item(
@@ -221,8 +232,8 @@ fn config_item(
 ) {
     let current_item = data
         .get(&setup.resource_man.registry.data_ids.item)
-        .and_then(Data::as_id)
-        .cloned();
+        .cloned()
+        .and_then(Data::into_id);
     let mut new_item = current_item;
 
     let items = setup
@@ -243,8 +254,7 @@ fn config_item(
     });
 
     if let Some(stack) = current_item
-        .and_then(|id| setup.resource_man.registry.item(id))
-        .cloned()
+        .and_then(|id| setup.resource_man.registry.items.get(&id).cloned())
         .map(|item| ItemStack { item, amount: 0 })
     {
         draw_item(
@@ -285,6 +295,40 @@ fn config_item(
     }
 }
 
+fn draw_script_info(ui: &mut Ui, setup: &GameSetup, script: Option<Id>) {
+    let Some(script) = script.and_then(|id| setup.resource_man.registry.scripts.get(&id)) else {
+        return;
+    };
+
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+
+        if let Some(inputs) = &script.instructions.inputs {
+            for input in inputs {
+                draw_item(
+                    ui,
+                    &setup.resource_man,
+                    Some(" + "),
+                    *input,
+                    SMALL_ITEM_ICON_SIZE,
+                    true,
+                );
+            }
+        }
+
+        for output in &script.instructions.outputs {
+            draw_item(
+                ui,
+                &setup.resource_man,
+                Some("=> "),
+                *output,
+                SMALL_ITEM_ICON_SIZE,
+                true,
+            );
+        }
+    });
+}
+
 fn config_script(
     ui: &mut Ui,
     setup: &GameSetup,
@@ -295,9 +339,8 @@ fn config_script(
 ) {
     let current_script = data
         .get(&setup.resource_man.registry.data_ids.script)
-        .and_then(Data::as_id)
-        .cloned();
-    let mut new_script = current_script;
+        .cloned()
+        .and_then(Data::into_id);
 
     ui.horizontal(|ui| {
         ui.label(
@@ -313,35 +356,9 @@ fn config_script(
         );
     });
 
-    ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+    draw_script_info(ui, setup, current_script);
 
-        if let Some(script) = new_script.and_then(|id| setup.resource_man.registry.script(id)) {
-            if let Some(inputs) = &script.instructions.inputs {
-                for input in inputs {
-                    draw_item(
-                        ui,
-                        &setup.resource_man,
-                        Some(" + "),
-                        *input,
-                        SMALL_ITEM_ICON_SIZE,
-                        true,
-                    );
-                }
-            }
-
-            for output in &script.instructions.outputs {
-                draw_item(
-                    ui,
-                    &setup.resource_man,
-                    Some("=> "),
-                    *output,
-                    SMALL_ITEM_ICON_SIZE,
-                    true,
-                );
-            }
-        }
-    });
+    let mut new_script = current_script;
 
     loop_store.gui_state.text_field.searchable_id(
         ui,
@@ -379,133 +396,125 @@ pub fn tile_config(
     context: &Context,
     game_data: &mut DataMap,
 ) {
-    if let Some(config_open) = loop_store.config_open {
-        let tile = block_on(
-            setup
-                .game
-                .call(|reply| GameMsg::GetTile(config_open, reply), None),
-        )
+    let Some(config_open) = loop_store.config_open else {
+        return;
+    };
+
+    let Some(id) = block_on(
+        setup
+            .game
+            .call(|reply| GameMsg::GetTile(config_open, reply), None),
+    )
+    .unwrap()
+    .unwrap() else {
+        return;
+    };
+
+    let Some(entity) = block_on(
+        setup
+            .game
+            .call(|reply| GameMsg::GetTileEntity(config_open, reply), None),
+    )
+    .unwrap()
+    .unwrap() else {
+        return;
+    };
+
+    let data = block_on(entity.call(TileEntityMsg::GetData, None))
         .unwrap()
         .unwrap();
 
-        let tile_entity = block_on(
-            setup
-                .game
-                .call(|reply| GameMsg::GetTileEntity(config_open, reply), None),
-        )
-        .unwrap()
-        .unwrap();
+    Window::new(
+        setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.tile_config]
+            .to_string(),
+    )
+    .resizable(false)
+    .auto_sized()
+    .constrain(true)
+    .frame(gui::default_frame().inner_margin(Margin::same(10.0)))
+    .show(context, |ui| {
+        const MARGIN: Float = 10.0;
 
-        if let Some((id, tile_entity)) = tile.zip(tile_entity) {
-            let data = block_on(tile_entity.call(TileEntityMsg::GetData, None))
-                .unwrap()
-                .unwrap();
+        ui.set_max_width(300.0);
 
-            Window::new(
-                setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.tile_config]
-                    .to_string(),
-            )
-            .resizable(false)
-            .auto_sized()
-            .constrain(true)
-            .frame(gui::default_frame().inner_margin(Margin::same(10.0)))
-            .show(context, |ui| {
-                const MARGIN: Float = 10.0;
+        let tile_info = setup.resource_man.registry.tiles.get(&id).unwrap();
 
-                ui.set_max_width(300.0);
-
-                let tile_info = setup.resource_man.registry.tile(id).unwrap();
-
-                if let Some(scripts) = tile_info
-                    .data
-                    .get(&setup.resource_man.registry.data_ids.scripts)
-                    .and_then(Data::as_vec_id)
-                {
-                    ui.add_space(MARGIN);
-                    ui.vertical(|ui| {
-                        config_script(ui, setup, loop_store, &data, scripts, tile_entity.clone());
-                    });
-                    ui.add_space(MARGIN);
-                }
-
-                if setup
-                    .resource_man
-                    .registry
-                    .tile_data(id, setup.resource_man.registry.data_ids.storage_takeable)
-                    .and_then(Data::as_bool)
-                    .cloned()
-                    .unwrap_or(false)
-                {
-                    if let Some(buffer) = data
-                        .get(&setup.resource_man.registry.data_ids.buffer)
-                        .and_then(Data::as_inventory)
-                        .cloned()
-                    {
-                        ui.add_space(MARGIN);
-                        ui.vertical(|ui| {
-                            takeable_item(
-                                ui,
-                                setup,
-                                loop_store,
-                                buffer,
-                                game_data,
-                                tile_entity.clone(),
-                            );
-                        });
-                        ui.add_space(MARGIN);
-                    }
-                }
-
-                if let Some(Data::Id(item_type)) = tile_info
-                    .data
-                    .get(&setup.resource_man.registry.data_ids.item_type)
-                    .cloned()
-                {
-                    ui.add_space(MARGIN);
-                    ui.vertical(|ui| {
-                        config_item(
-                            ui,
-                            setup,
-                            loop_store,
-                            &data,
-                            item_type,
-                            tile_entity.clone(),
-                            tile_info,
-                        );
-                    });
-                    ui.add_space(MARGIN);
-                }
-
-                if !setup
-                    .resource_man
-                    .registry
-                    .tile_data(id, setup.resource_man.registry.data_ids.not_targeted)
-                    .and_then(Data::as_bool)
-                    .cloned()
-                    .unwrap_or(false)
-                {
-                    ui.add_space(MARGIN);
-                    ui.vertical(|ui| {
-                        config_target(ui, setup, &data, tile_entity.clone());
-                    });
-                    ui.add_space(MARGIN);
-                }
-
-                if setup
-                    .resource_man
-                    .registry
-                    .tile_data(id, setup.resource_man.registry.data_ids.linking)
-                    .and_then(Data::as_bool)
-                    .cloned()
-                    .unwrap_or(false)
-                {
-                    ui.add_space(MARGIN);
-                    ui.vertical(|ui| {
-                        config_linking(ui, setup, loop_store, config_open);
-                    });
-                    ui.add_space(MARGIN);
-                }
+        if let Some(Data::VecId(scripts)) = tile_info
+            .data
+            .get(&setup.resource_man.registry.data_ids.scripts)
+        {
+            ui.add_space(MARGIN);
+            ui.vertical(|ui| {
+                config_script(ui, setup, loop_store, &data, scripts, entity.clone());
             });
+            ui.add_space(MARGIN);
         }
-    }
+
+        if tile_info
+            .data
+            .get(&setup.resource_man.registry.data_ids.storage_takeable)
+            .cloned()
+            .and_then(Data::into_bool)
+            .unwrap_or(false)
+        {
+            if let Some(Data::Inventory(buffer)) = data
+                .get(&setup.resource_man.registry.data_ids.buffer)
+                .cloned()
+            {
+                ui.add_space(MARGIN);
+                ui.vertical(|ui| {
+                    takeable_item(ui, setup, loop_store, buffer, game_data, entity.clone());
+                });
+                ui.add_space(MARGIN);
+            }
+        }
+
+        if let Some(Data::Id(item_type)) = tile_info
+            .data
+            .get(&setup.resource_man.registry.data_ids.item_type)
+            .cloned()
+        {
+            ui.add_space(MARGIN);
+            ui.vertical(|ui| {
+                config_item(
+                    ui,
+                    setup,
+                    loop_store,
+                    &data,
+                    item_type,
+                    entity.clone(),
+                    tile_info,
+                );
+            });
+            ui.add_space(MARGIN);
+        }
+
+        if !tile_info
+            .data
+            .get(&setup.resource_man.registry.data_ids.not_targeted)
+            .cloned()
+            .and_then(Data::into_bool)
+            .unwrap_or(false)
+        {
+            ui.add_space(MARGIN);
+            ui.vertical(|ui| {
+                config_target(ui, setup, &data, entity.clone());
+            });
+            ui.add_space(MARGIN);
+        }
+
+        if tile_info
+            .data
+            .get(&setup.resource_man.registry.data_ids.linking)
+            .cloned()
+            .and_then(Data::into_bool)
+            .unwrap_or(false)
+        {
+            ui.add_space(MARGIN);
+            ui.vertical(|ui| {
+                config_linking(ui, setup, loop_store, config_open);
+            });
+            ui.add_space(MARGIN);
+        }
+    });
 }

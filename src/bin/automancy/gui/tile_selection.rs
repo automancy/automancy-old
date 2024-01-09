@@ -5,9 +5,9 @@ use std::f32::consts::FRAC_PI_4;
 
 use automancy_defs::cgmath::{point3, Rotation3};
 use automancy_defs::id::Id;
+use automancy_defs::math;
 use automancy_defs::math::{rad, z_far, z_near, Matrix4, Quaternion};
 use automancy_defs::rendering::InstanceData;
-use automancy_defs::{log, math};
 use automancy_resources::data::{Data, DataMap};
 
 use crate::gui::{default_frame, GameEguiCallback};
@@ -25,23 +25,24 @@ fn draw_tile_selection(
         math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(point3(0.0, 0.0, 2.75));
 
     for id in setup.resource_man.ordered_tiles.iter().filter(|id| {
-        if Some(&true)
-            == setup
-                .resource_man
-                .registry
-                .tile(**id)
-                .unwrap()
-                .data
-                .get(&setup.resource_man.registry.data_ids.default_tile)
-                .and_then(Data::as_bool)
+        if setup
+            .resource_man
+            .registry
+            .tiles
+            .get(*id)
+            .unwrap()
+            .data
+            .get(&setup.resource_man.registry.data_ids.default_tile)
+            .cloned()
+            .and_then(Data::into_bool)
+            .unwrap_or(false)
         {
             return true;
         }
 
         if let Some(research) = setup.resource_man.get_research_by_unlock(**id) {
-            if let Some(unlocked) = game_data
-                .get(&setup.resource_man.registry.data_ids.unlocked_researches)
-                .and_then(Data::as_set_id)
+            if let Some(Data::SetId(unlocked)) =
+                game_data.get(&setup.resource_man.registry.data_ids.unlocked_researches)
             {
                 return unlocked.contains(&research.id);
             }
@@ -49,7 +50,7 @@ fn draw_tile_selection(
 
         false
     }) {
-        let tile = setup.resource_man.registry.tile(*id).unwrap();
+        let tile = setup.resource_man.registry.tiles.get(id).unwrap();
         let model = setup.resource_man.get_model(tile.model);
 
         let (ui_id, rect) = ui.allocate_space(vec2(size, size));

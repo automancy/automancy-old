@@ -5,7 +5,6 @@ use automancy_defs::id::Id;
 use automancy_macros::IdReg;
 
 use crate::data::item::Item;
-use crate::data::Data;
 use crate::types::research::Research;
 use crate::types::script::Script;
 use crate::types::tag::Tag;
@@ -29,28 +28,6 @@ pub struct Registry {
     pub model_ids: ModelIds,
     pub gui_ids: GuiIds,
     pub err_ids: ErrorIds,
-}
-
-impl Registry {
-    pub fn tile_data(&self, id: Id, data: Id) -> Option<&Data> {
-        self.tiles.get(&id).and_then(|v| v.data.get(&data))
-    }
-
-    pub fn tile(&self, id: Id) -> Option<&Tile> {
-        self.tiles.get(&id)
-    }
-
-    pub fn script(&self, id: Id) -> Option<&Script> {
-        self.scripts.get(&id)
-    }
-
-    pub fn tag(&self, id: Id) -> Option<&Tag> {
-        self.tags.get(&id)
-    }
-
-    pub fn item(&self, id: Id) -> Option<&Item> {
-        self.items.get(&id)
-    }
 }
 
 #[derive(Copy, Clone, IdReg)]

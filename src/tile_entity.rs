@@ -3,10 +3,11 @@ use std::sync::Arc;
 
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use rand::{thread_rng, RngCore};
-use rhai::{CallFnOptions, Dynamic, ImmutableString, Scope, INT};
+use rhai::{Array, CallFnOptions, Dynamic, ImmutableString, Scope, INT};
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::id::Id;
+use automancy_defs::log;
 use automancy_resources::data::stack::{ItemAmount, ItemStack};
 use automancy_resources::data::{Data, DataMap};
 use automancy_resources::ResourceManager;
@@ -19,6 +20,15 @@ fn rhai_call_options(rhai_state: &mut Dynamic) -> CallFnOptions {
         .eval_ast(false)
         .rewind_scope(true)
         .bind_this_ptr(rhai_state)
+}
+
+fn log_function_err(function_id: &str, err: &rhai::EvalAltResult) {
+    match err {
+        rhai::EvalAltResult::ErrorFunctionNotFound(..) => {}
+        _ => {
+            log::error!("In {function_id}: {err}");
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -81,9 +91,10 @@ pub enum TileEntityMsg {
         source_id: Id,
         root_coord: TileCoord,
         root_id: Id,
+        hidden: bool,
     },
     TransactionResult {
-        result: Result<ItemStack, ()>,
+        result: ItemStack,
     },
     ExtractRequest {
         requested_from_id: Id,
@@ -112,6 +123,10 @@ impl TileEntity {
         root_id: Id,
         result: rhai::Array,
     ) -> Option<GameMsg> {
+        if result.is_empty() {
+            return None;
+        }
+
         let ty: ImmutableString = result[0].clone().cast();
 
         match ty.as_str() {
@@ -127,6 +142,7 @@ impl TileEntity {
                         source_coord: self.coord,
                         root_id,
                         root_coord,
+                        hidden: false,
                     },
                 );
 
@@ -144,8 +160,11 @@ impl TileEntity {
                         source_coord,
                         root_id,
                         root_coord,
+                        hidden: false,
                     },
                 );
+
+                return Some(GameMsg::RecordTransaction(stack, self.coord, coord));
             }
             "consume" => {
                 let consumed: ItemAmount = result[1].clone().cast();
@@ -154,10 +173,10 @@ impl TileEntity {
                     state,
                     root_coord,
                     TransactionResult {
-                        result: Ok(ItemStack {
+                        result: ItemStack {
                             item: stack.item,
                             amount: consumed,
-                        }),
+                        },
                     },
                 );
 
@@ -169,7 +188,11 @@ impl TileEntity {
         None
     }
 
-    fn handle_rhai_result(&self, state: &mut TileEntityState, result: rhai::Array) {
+    fn handle_rhai_result(&self, state: &mut TileEntityState, result: Array) {
+        if result.is_empty() {
+            return;
+        }
+
         let ty: ImmutableString = result[0].clone().cast();
 
         match ty.as_str() {
@@ -193,6 +216,32 @@ impl TileEntity {
                             source_id,
                             root_coord: source_coord,
                             root_id: source_id,
+                            hidden: false,
+                        },
+                    );
+                }
+            }
+            "make_hidden_transaction" => {
+                let coord: TileCoord = result[1].clone().cast();
+                let source_id: Id = result[2].clone().cast::<INT>().into();
+                let source_coord: TileCoord = result[3].clone().cast();
+
+                let stacks: Vec<ItemStack> = result[4]
+                    .clone()
+                    .try_cast()
+                    .unwrap_or_else(|| result[4].clone().into_typed_array().unwrap());
+
+                for stack in stacks {
+                    send_to_tile(
+                        state,
+                        coord,
+                        Transaction {
+                            stack,
+                            source_coord,
+                            source_id,
+                            root_coord: source_coord,
+                            root_id: source_id,
+                            hidden: true,
                         },
                     );
                 }
@@ -224,9 +273,9 @@ impl TileEntity {
         root_coord: TileCoord,
         root_id: Id,
     ) -> Option<GameMsg> {
-        let tile = self.resource_man.registry.tile(self.id).unwrap();
+        let tile = self.resource_man.registry.tiles.get(&self.id).unwrap();
 
-        if let Some((ast, default_scope)) = tile
+        if let Some((ast, default_scope, function_id)) = tile
             .function
             .as_ref()
             .and_then(|v| self.resource_man.functions.get(v))
@@ -268,19 +317,22 @@ impl TileEntity {
                 .unwrap()
                 .cast();
 
-            if let Some(result) = result.ok().and_then(|v| v.try_cast::<rhai::Array>()) {
-                return self.handle_rhai_transaction_result(
-                    state,
-                    stack,
-                    source_coord,
-                    source_id,
-                    root_coord,
-                    root_id,
-                    result,
-                );
-            } else {
-                send_to_tile(state, source_coord, TransactionResult { result: Err(()) });
-            };
+            match result {
+                Ok(result) => {
+                    if let Some(result) = result.try_cast::<Array>() {
+                        return self.handle_rhai_transaction_result(
+                            state,
+                            stack,
+                            source_coord,
+                            source_id,
+                            root_coord,
+                            root_id,
+                            result,
+                        );
+                    }
+                }
+                Err(err) => log_function_err(function_id, &err),
+            }
         }
 
         None
@@ -309,19 +361,17 @@ impl Actor for TileEntity {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             Tick { tick_count } => {
-                let tile = self.resource_man.registry.tile(self.id).unwrap();
+                let tile = self.resource_man.registry.tiles.get(&self.id).unwrap();
 
                 if tick_count % 10 == 0 {
-                    if let Some(script) = state
-                        .data
-                        .get(&self.resource_man.registry.data_ids.script)
-                        .and_then(Data::as_id)
+                    if let Some(Data::Id(script)) =
+                        state.data.get(&self.resource_man.registry.data_ids.script)
                     {
-                        if let Some(script) = self.resource_man.registry.script(*script).cloned() {
+                        if let Some(script) = self.resource_man.registry.scripts.get(script) {
                             state
                                 .game
                                 .send_message(GameMsg::CheckAdjacent {
-                                    script,
+                                    script: script.clone(),
                                     coord: self.coord,
                                     self_coord: self.coord,
                                 })
@@ -334,7 +384,7 @@ impl Actor for TileEntity {
                     return Ok(());
                 }
 
-                if let Some((ast, default_scope)) = tile
+                if let Some((ast, default_scope, function_id)) = tile
                     .function
                     .as_ref()
                     .and_then(|v| self.resource_man.functions.get(v))
@@ -369,8 +419,15 @@ impl Actor for TileEntity {
                         .unwrap()
                         .cast();
 
-                    if let Some(result) = result.ok().and_then(|v| v.try_cast::<rhai::Array>()) {
-                        self.handle_rhai_result(state, result);
+                    match result {
+                        Ok(result) => {
+                            if let Some(result) = result.try_cast::<Array>() {
+                                self.handle_rhai_result(state, result);
+                            }
+                        }
+                        Err(err) => {
+                            log_function_err(function_id, &err);
+                        }
                     }
                 }
             }
@@ -380,52 +437,60 @@ impl Actor for TileEntity {
                 source_id,
                 root_coord,
                 root_id,
+                hidden,
             } => {
                 if let Some(record) =
                     self.transaction(state, stack, source_coord, source_id, root_coord, root_id)
                 {
-                    state.game.send_message(record).unwrap();
+                    if !hidden {
+                        state.game.send_message(record).unwrap();
+                    }
                 }
             }
             TransactionResult { result } => {
-                if let Ok(transferred) = result {
-                    let tile = self.resource_man.registry.tile(self.id).unwrap();
+                let tile = self.resource_man.registry.tiles.get(&self.id).unwrap();
 
-                    if let Some((ast, default_scope)) = tile
-                        .function
-                        .as_ref()
-                        .and_then(|v| self.resource_man.functions.get(v))
-                    {
-                        let scope = state
-                            .scope
-                            .get_or_insert_with(|| default_scope.clone_visible());
+                if let Some((ast, default_scope, function_id)) = tile
+                    .function
+                    .as_ref()
+                    .and_then(|v| self.resource_man.functions.get(v))
+                {
+                    let scope = state
+                        .scope
+                        .get_or_insert_with(|| default_scope.clone_visible());
 
-                        state
-                            .rhai_map
-                            .insert(RHAI_DATA_MAP_KEY.into(), Dynamic::from(state.data.clone()));
+                    state
+                        .rhai_map
+                        .insert(RHAI_DATA_MAP_KEY.into(), Dynamic::from(state.data.clone()));
 
-                        let mut rhai_state = Dynamic::from_map(state.rhai_map.clone());
+                    let mut rhai_state = Dynamic::from_map(state.rhai_map.clone());
 
-                        _ = self.resource_man.engine.call_fn_with_options::<Dynamic>(
-                            rhai_call_options(&mut rhai_state),
-                            scope,
-                            ast,
-                            "handle_transaction_result",
-                            (rhai::Map::from([
-                                ("coord".into(), Dynamic::from(self.coord)),
-                                ("id".into(), Dynamic::from_int(self.id.into())),
-                                ("random".into(), Dynamic::from_int(random())),
-                                ("transferred".into(), Dynamic::from(transferred)),
-                            ]),),
-                        );
+                    let result = self.resource_man.engine.call_fn_with_options::<Dynamic>(
+                        rhai_call_options(&mut rhai_state),
+                        scope,
+                        ast,
+                        "handle_transaction_result",
+                        (rhai::Map::from([
+                            ("coord".into(), Dynamic::from(self.coord)),
+                            ("id".into(), Dynamic::from_int(self.id.into())),
+                            ("random".into(), Dynamic::from_int(random())),
+                            ("transferred".into(), Dynamic::from(result)),
+                        ]),),
+                    );
 
-                        state.rhai_map = rhai_state.take().cast::<rhai::Map>();
-                        state.data = state
-                            .rhai_map
-                            .get(RHAI_DATA_MAP_KEY)
-                            .cloned()
-                            .unwrap()
-                            .cast();
+                    state.rhai_map = rhai_state.take().cast::<rhai::Map>();
+                    state.data = state
+                        .rhai_map
+                        .get(RHAI_DATA_MAP_KEY)
+                        .cloned()
+                        .unwrap()
+                        .cast();
+
+                    match result {
+                        Ok(_) => {}
+                        Err(err) => {
+                            log_function_err(function_id, &err);
+                        }
                     }
                 }
             }
@@ -454,9 +519,9 @@ impl Actor for TileEntity {
                 requested_from_id,
                 requested_from_coord,
             } => {
-                let tile = self.resource_man.registry.tile(self.id).unwrap();
+                let tile = self.resource_man.registry.tiles.get(&self.id).unwrap();
 
-                if let Some((ast, default_scope)) = tile
+                if let Some((ast, default_scope, function_id)) = tile
                     .function
                     .as_ref()
                     .and_then(|v| self.resource_man.functions.get(v))
@@ -499,8 +564,13 @@ impl Actor for TileEntity {
                         .unwrap()
                         .cast();
 
-                    if let Some(result) = result.ok().and_then(|v| v.try_cast::<rhai::Array>()) {
-                        self.handle_rhai_result(state, result);
+                    match result {
+                        Ok(result) => {
+                            if let Some(result) = result.try_cast::<Array>() {
+                                self.handle_rhai_result(state, result);
+                            }
+                        }
+                        Err(err) => log_function_err(function_id, &err),
                     }
                 }
             }

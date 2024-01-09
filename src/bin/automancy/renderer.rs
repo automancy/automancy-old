@@ -67,7 +67,7 @@ impl Renderer {
 }
 
 fn get_angle_from_direction(target: &Data) -> Option<Float> {
-    if let Some(target) = target.as_coord() {
+    if let Data::Coord(target) = target {
         match *target {
             TileCoord::TOP_RIGHT => Some(0.0),
             TileCoord::RIGHT => Some(-60.0),
@@ -154,6 +154,13 @@ impl Renderer {
         let (mut instances, all_data) = map_render_info;
 
         for (coord, unit) in instances.iter_mut() {
+            let tile = setup
+                .resource_man
+                .registry
+                .tiles
+                .get(&unit.tile_id)
+                .unwrap();
+
             if let Some(theta) = all_data
                 .get(coord)
                 .and_then(|data| data.get(&setup.resource_man.registry.data_ids.target))
@@ -162,32 +169,23 @@ impl Renderer {
                 unit.instance = unit
                     .instance
                     .add_model_matrix_right(Matrix4::from_angle_z(deg(theta)));
-            } else if let Some(inactive) = setup
-                .resource_man
-                .registry
-                .tile_data(
-                    unit.tile,
-                    setup.resource_man.registry.data_ids.inactive_model,
-                )
-                .and_then(Data::as_id)
+            } else if let Some(Data::Id(inactive)) = tile
+                .data
+                .get(&setup.resource_man.registry.data_ids.inactive_model)
             {
                 unit.model = setup.resource_man.get_model(*inactive);
             }
         }
 
         for (coord, data) in all_data {
-            if let Some(link) = data
-                .get(&setup.resource_man.registry.data_ids.link)
-                .and_then(Data::as_coord)
-                .cloned()
-            {
+            if let Some(Data::Coord(link)) = data.get(&setup.resource_man.registry.data_ids.link) {
                 extra_instances.push((
                     InstanceData::default()
                         .with_color_offset(colors::RED.to_array())
                         .with_light_pos(camera_pos_float, None)
                         .with_model_matrix(make_line(
                             math::hex_to_pixel(*coord),
-                            math::hex_to_pixel(*link),
+                            math::hex_to_pixel(**link),
                         )),
                     setup.resource_man.registry.model_ids.cube1x1,
                 ));
@@ -234,7 +232,8 @@ impl Renderer {
             let none = setup
                 .resource_man
                 .registry
-                .tile(setup.resource_man.registry.none)
+                .tiles
+                .get(&setup.resource_man.registry.none)
                 .unwrap()
                 .model;
 
@@ -255,7 +254,7 @@ impl Renderer {
                                         FAR as Float,
                                     )),
                                 ),
-                                tile: none,
+                                tile_id: none,
                                 model: none,
                             },
                         );
