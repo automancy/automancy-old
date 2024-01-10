@@ -34,8 +34,8 @@ use crate::event::{on_event, EventLoopStorage};
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
 
-pub static LOGO_PATH: &str = "assets/logo_256.png";
-pub static LOGO: &[u8] = include_bytes!("assets/logo_256.png");
+pub static LOGO_PATH: &str = "assets/logo.png";
+pub static LOGO: &[u8] = include_bytes!("assets/logo.png");
 
 mod event;
 mod gui;
