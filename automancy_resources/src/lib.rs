@@ -27,15 +27,16 @@ use automancy_defs::rendering::{Animation, Model};
 use crate::data::inventory::Inventory;
 use crate::data::item::{rhai_item_match, rhai_item_matches, rhai_item_stack_matches, Item};
 use crate::data::stack::{ItemAmount, ItemStack};
-use crate::data::DataMap;
 use crate::error::ErrorManager;
 use crate::registry::{DataIds, ErrorIds, GuiIds, ModelIds, Registry};
 use crate::types::font::Font;
+use crate::types::function::RhaiDataMap;
 use crate::types::model::IndexRange;
 use crate::types::script::{Instructions, Script};
 use crate::types::tag::Tag;
 use crate::types::tile::Tile;
 use crate::types::translate::Translate;
+
 pub mod data;
 pub mod error;
 
@@ -165,8 +166,11 @@ impl ResourceManager {
 
         {
             engine
-                .register_indexer_get_set(DataMap::rhai_get, DataMap::rhai_set)
-                .register_fn("get_or_insert", DataMap::rhai_get_or_insert);
+                .register_indexer_get_set(RhaiDataMap::rhai_get, RhaiDataMap::rhai_set)
+                .register_fn(
+                    "get_or_new_inventory",
+                    RhaiDataMap::rhai_get_or_new_inventory,
+                );
 
             engine
                 .register_type_with_name::<Inventory>("Inventory")

@@ -11,11 +11,11 @@ fn function_id() {
 }
 
 fn handle_transaction(input) {
-    let item = this.data[ITEM]?.as_item();
-    let amount = this.data[AMOUNT];
+    let item = this[ITEM]?.as_item();
+    let amount = this[AMOUNT];
 
     if amount != () && item != () && input.stack.item == item {
-        let buffer = this.data.get_or_insert(BUFFER, "Inventory");
+        let buffer = this.get_or_new_inventory(BUFFER);
 
         let stored = buffer[item];
         if stored > amount {
@@ -30,23 +30,23 @@ fn handle_transaction(input) {
         stored += inserting;
 
         buffer[item] = stored;
-        this.data[BUFFER] = buffer;
+        this[BUFFER] = buffer;
 
         return ["consume", inserting];
     }
 }
 
 fn handle_transaction_result(input) {
-    let buffer = this.data[BUFFER];
+    let buffer = this[BUFFER];
 
     buffer.take(input.transferred.item, input.transferred.amount);
     
-    this.data[BUFFER] = buffer;
+    this[BUFFER] = buffer;
 }
 
 fn handle_extract_request(input) {
-    let item = this.data[ITEM]?.as_item();
-    let buffer = this.data[BUFFER];
+    let item = this[ITEM]?.as_item();
+    let buffer = this[BUFFER];
 
     if item != () && buffer != () {
         let stored = buffer[item];

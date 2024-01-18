@@ -10,8 +10,8 @@ fn function_id() {
 }
 
 fn handle_transaction(input) {
-    let item = this.data[ITEM]?.as_item();
-    let target = this.data[TARGET];
+    let item = this[ITEM]?.as_item();
+    let target = this[TARGET];
 
     if item != () && target != () {
         if input.stack.item == item {

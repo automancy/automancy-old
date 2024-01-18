@@ -2,7 +2,7 @@ use std::any::TypeId;
 use std::collections::{BTreeMap, HashSet};
 use std::ops::{Deref, DerefMut};
 
-use rhai::{Dynamic, ImmutableString};
+use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 
 use automancy_defs::coord::TileCoord;
@@ -97,6 +97,28 @@ impl Data {
             Data::Amount(v) => Dynamic::from_int(v),
             Data::Bool(v) => Dynamic::from_bool(v),
         }
+    }
+
+    pub fn from_rhai(v: Dynamic) -> Option<Self> {
+        Some(if v.type_id() == TypeId::of::<TileCoord>() {
+            Data::Coord(v.cast())
+        } else if v.type_id() == TypeId::of::<Id>() {
+            Data::Id(v.cast())
+        } else if v.type_id() == TypeId::of::<ItemAmount>() {
+            Data::Amount(v.cast())
+        } else if v.type_id() == TypeId::of::<bool>() {
+            Data::Bool(v.cast())
+        } else if v.type_id() == TypeId::of::<Inventory>() {
+            Data::Inventory(v.cast())
+        } else if v.type_id() == TypeId::of::<Vec<TileCoord>>() {
+            Data::VecCoord(v.cast())
+        } else if v.type_id() == TypeId::of::<Vec<Id>>() {
+            Data::VecId(v.cast())
+        } else if v.type_id() == TypeId::of::<HashSet<Id>>() {
+            Data::SetId(v.cast())
+        } else {
+            return None;
+        })
     }
 }
 
@@ -194,41 +216,6 @@ impl DataMap {
                 })
                 .collect(),
         )
-    }
-
-    fn rhai_parse(ty: ImmutableString) -> Option<Data> {
-        let ty = ty.to_lowercase();
-
-        match ty.as_str() {
-            "inventory" => Some(Data::Inventory(Default::default())),
-            "veccoord" => Some(Data::VecCoord(Default::default())),
-            "bool" => Some(Data::Bool(false)),
-            "amount" => Some(Data::Amount(0)),
-            "coord" => Some(Data::Coord(TileCoord::ZERO)),
-            "setid" => Some(Data::SetId(Default::default())),
-            "vecid" => Some(Data::VecId(Default::default())),
-            _ => None,
-        }
-    }
-
-    pub fn rhai_get(&mut self, id: Id) -> Dynamic {
-        if let Some(v) = self.get(&id).cloned() {
-            v.rhai_value()
-        } else {
-            Dynamic::UNIT
-        }
-    }
-
-    pub fn rhai_set(&mut self, id: Id, value: Dynamic) {
-        self.0.insert(id, value.try_into().unwrap());
-    }
-
-    pub fn rhai_get_or_insert(&mut self, id: Id, ty: ImmutableString) -> Dynamic {
-        self.0
-            .entry(id)
-            .or_insert_with(|| Self::rhai_parse(ty).unwrap())
-            .clone()
-            .rhai_value()
     }
 }
 

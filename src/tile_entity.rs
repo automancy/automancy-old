@@ -10,6 +10,7 @@ use automancy_defs::id::Id;
 use automancy_defs::log;
 use automancy_resources::data::stack::{ItemAmount, ItemStack};
 use automancy_resources::data::{Data, DataMap};
+use automancy_resources::types::function::RhaiDataMap;
 use automancy_resources::ResourceManager;
 
 use crate::game::{GameMsg, TickUnit};
@@ -41,22 +42,17 @@ pub struct TileEntity {
     pub resource_man: Arc<ResourceManager>,
 }
 
-pub const RHAI_DATA_MAP_KEY: &str = "data";
-
 /// Represents a tile entity's state. A tile entity is the actor that allows the tile to take, process, and output resources.
 #[derive(Debug, Clone)]
 pub struct TileEntityState {
     /// A handle to the game.
     game: ActorRef<GameMsg>,
 
-    /// The rhai object map
-    rhai_map: rhai::Map, // TODO deprecate the data map entirely
+    /// The data map stored by the tile.
+    data: RhaiDataMap,
 
     /// Rhai scope
     scope: Option<Scope<'static>>,
-
-    /// The data map stored by the tile.
-    data: DataMap,
 
     /// Are adjacent tiles requirement fulfilled
     adjacent_fulfilled: bool,
@@ -67,13 +63,9 @@ impl TileEntityState {
         Self {
             game,
 
-            rhai_map: rhai::Map::from([(
-                RHAI_DATA_MAP_KEY.into(),
-                Dynamic::from(DataMap::default()),
-            )]),
-            scope: Default::default(),
+            data: Default::default(),
 
-            data: DataMap::default(),
+            scope: Default::default(),
 
             adjacent_fulfilled: true,
         }
@@ -284,16 +276,11 @@ impl TileEntity {
                 .scope
                 .get_or_insert_with(|| default_scope.clone_visible());
 
-            state
-                .rhai_map
-                .insert(RHAI_DATA_MAP_KEY.into(), Dynamic::from(state.data.clone()));
-
-            let mut rhai_state = Dynamic::from_map(state.rhai_map.clone());
-
-            let options = rhai_call_options(&mut rhai_state);
+            let data = mem::take(&mut state.data);
+            let mut rhai_state = Dynamic::from(data);
 
             let result = self.resource_man.engine.call_fn_with_options::<Dynamic>(
-                options,
+                rhai_call_options(&mut rhai_state),
                 scope,
                 ast,
                 "handle_transaction",
@@ -309,13 +296,7 @@ impl TileEntity {
                 ]),),
             );
 
-            state.rhai_map = rhai_state.take().cast::<rhai::Map>();
-            state.data = state
-                .rhai_map
-                .get(RHAI_DATA_MAP_KEY)
-                .cloned()
-                .unwrap()
-                .cast();
+            state.data = rhai_state.take().cast::<RhaiDataMap>();
 
             match result {
                 Ok(result) => {
@@ -365,9 +346,9 @@ impl Actor for TileEntity {
 
                 if tick_count % 10 == 0 {
                     if let Some(Data::Id(script)) =
-                        state.data.get(&self.resource_man.registry.data_ids.script)
+                        state.data.get(self.resource_man.registry.data_ids.script)
                     {
-                        if let Some(script) = self.resource_man.registry.scripts.get(script) {
+                        if let Some(script) = self.resource_man.registry.scripts.get(&script) {
                             state
                                 .game
                                 .send_message(GameMsg::CheckAdjacent {
@@ -393,11 +374,8 @@ impl Actor for TileEntity {
                         .scope
                         .get_or_insert_with(|| default_scope.clone_visible());
 
-                    state
-                        .rhai_map
-                        .insert(RHAI_DATA_MAP_KEY.into(), Dynamic::from(state.data.clone()));
-
-                    let mut rhai_state = Dynamic::from_map(state.rhai_map.clone());
+                    let data = mem::take(&mut state.data);
+                    let mut rhai_state = Dynamic::from(data);
 
                     let result = self.resource_man.engine.call_fn_with_options::<Dynamic>(
                         rhai_call_options(&mut rhai_state),
@@ -411,13 +389,7 @@ impl Actor for TileEntity {
                         ]),),
                     );
 
-                    state.rhai_map = rhai_state.take().cast::<rhai::Map>();
-                    state.data = state
-                        .rhai_map
-                        .get(RHAI_DATA_MAP_KEY)
-                        .cloned()
-                        .unwrap()
-                        .cast();
+                    state.data = rhai_state.take().cast::<RhaiDataMap>();
 
                     match result {
                         Ok(result) => {
@@ -459,11 +431,8 @@ impl Actor for TileEntity {
                         .scope
                         .get_or_insert_with(|| default_scope.clone_visible());
 
-                    state
-                        .rhai_map
-                        .insert(RHAI_DATA_MAP_KEY.into(), Dynamic::from(state.data.clone()));
-
-                    let mut rhai_state = Dynamic::from_map(state.rhai_map.clone());
+                    let data = mem::take(&mut state.data);
+                    let mut rhai_state = Dynamic::from(data);
 
                     let result = self.resource_man.engine.call_fn_with_options::<Dynamic>(
                         rhai_call_options(&mut rhai_state),
@@ -478,13 +447,7 @@ impl Actor for TileEntity {
                         ]),),
                     );
 
-                    state.rhai_map = rhai_state.take().cast::<rhai::Map>();
-                    state.data = state
-                        .rhai_map
-                        .get(RHAI_DATA_MAP_KEY)
-                        .cloned()
-                        .unwrap()
-                        .cast();
+                    state.data = rhai_state.take().cast::<RhaiDataMap>();
 
                     match result {
                         Ok(_) => {}
@@ -495,25 +458,29 @@ impl Actor for TileEntity {
                 }
             }
             SetData(data) => {
-                state.data = data;
+                state.data = RhaiDataMap::from_data_map(data);
             }
             SetDataValue(key, value) => {
-                state.data.insert(key, value);
+                state.data.set(key, value);
             }
             TakeData(reply) => {
-                reply.send(mem::take(&mut state.data)).unwrap();
+                reply
+                    .send(mem::take(&mut state.data).to_data_map())
+                    .unwrap();
             }
             GetData(reply) => {
-                reply.send(state.data.clone()).unwrap();
+                reply.send(state.data.clone().to_data_map()).unwrap();
             }
             GetDataValue(key, reply) => {
-                reply.send(state.data.get(&key).cloned()).unwrap();
+                reply.send(state.data.get(key)).unwrap();
             }
             GetDataWithCoord(reply) => {
-                reply.send((self.coord, state.data.clone())).unwrap();
+                reply
+                    .send((self.coord, state.data.clone().to_data_map()))
+                    .unwrap();
             }
             RemoveData(key) => {
-                state.data.remove(&key);
+                state.data.remove(key);
             }
             ExtractRequest {
                 requested_from_id,
@@ -530,11 +497,8 @@ impl Actor for TileEntity {
                         .scope
                         .get_or_insert_with(|| default_scope.clone_visible());
 
-                    state
-                        .rhai_map
-                        .insert(RHAI_DATA_MAP_KEY.into(), Dynamic::from(state.data.clone()));
-
-                    let mut rhai_state = Dynamic::from_map(state.rhai_map.clone());
+                    let data = mem::take(&mut state.data);
+                    let mut rhai_state = Dynamic::from(data);
 
                     let result = self.resource_man.engine.call_fn_with_options::<Dynamic>(
                         rhai_call_options(&mut rhai_state),
@@ -556,13 +520,7 @@ impl Actor for TileEntity {
                         ]),),
                     );
 
-                    state.rhai_map = rhai_state.take().cast::<rhai::Map>();
-                    state.data = state
-                        .rhai_map
-                        .get(RHAI_DATA_MAP_KEY)
-                        .cloned()
-                        .unwrap()
-                        .cast();
+                    state.data = rhai_state.take().cast::<RhaiDataMap>();
 
                     match result {
                         Ok(result) => {
@@ -590,7 +548,7 @@ fn send_to_tile(state: &mut TileEntityState, coord: TileCoord, message: TileEnti
     {
         Ok(_) => {}
         Err(_) => {
-            state.data.clear();
+            state.data = Default::default();
         }
     }
 }

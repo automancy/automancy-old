@@ -10,7 +10,7 @@ fn function_id() {
 }
 
 fn handle_tick(input) {
-    let link = this.data[LINK];
+    let link = this[LINK];
 
     if link != () {
         return ["make_extract_request", link, input.id, input.coord];
@@ -18,7 +18,7 @@ fn handle_tick(input) {
 }
 
 fn handle_transaction(input) {
-    let target = this.data[TARGET];
+    let target = this[TARGET];
 
     if target != () {
         return ["pass_on", input.coord + target];

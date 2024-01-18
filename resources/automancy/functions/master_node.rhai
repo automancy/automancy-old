@@ -10,7 +10,7 @@ fn function_id() {
 }
 
 fn handle_transaction(input) {
-    let requested_from_coord = this.data[REQUESTED_FROM_COORD];
+    let requested_from_coord = this[REQUESTED_FROM_COORD];
 
     if requested_from_coord != () {
         return ["pass_on", requested_from_coord]
@@ -18,9 +18,9 @@ fn handle_transaction(input) {
 }
 
 fn handle_extract_request(input) {
-    let target = this.data[TARGET];
+    let target = this[TARGET];
 
-    this.data[REQUESTED_FROM_COORD] = input.requested_from_coord;
+    this[REQUESTED_FROM_COORD] = input.requested_from_coord;
 
     if target != () {
         return ["make_extract_request", input.coord + target, input.id, input.coord]
