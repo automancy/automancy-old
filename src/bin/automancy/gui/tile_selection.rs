@@ -1,13 +1,13 @@
 use std::f64::consts::FRAC_PI_4;
 
-use automancy_defs::glam::{dvec3, vec3};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel, Ui};
 use futures::channel::mpsc;
 
+use automancy_defs::glam::{dvec3, vec3};
 use automancy_defs::id::Id;
 use automancy_defs::math;
-use automancy_defs::math::{z_far, z_near, Matrix4};
+use automancy_defs::math::{z_far, z_near, DMatrix4, Matrix4};
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::{Data, DataMap};
 
@@ -22,8 +22,8 @@ fn draw_tile_selection(
     game_data: &DataMap,
 ) {
     let size = ui.available_height();
-    let projection =
-        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(dvec3(0.0, 0.0, 2.75));
+    let projection = DMatrix4::perspective_lh(FRAC_PI_4, 1.0, z_near(), z_far())
+        * math::view(dvec3(0.0, 0.0, 2.75));
     let projection = projection.as_mat4();
 
     for id in setup.resource_man.ordered_tiles.iter().filter(|id| {

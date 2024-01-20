@@ -105,8 +105,8 @@ impl Camera {
 
         if self.scroll_vel.abs() > 0.00005 {
             self.pos.z += self.scroll_vel * m;
-            self.pos.z = self.pos.z.clamp(0.05, 4.0);
-            //self.pos.z = self.pos.z.clamp(1.0, 4.0);
+            //self.pos.z = self.pos.z.clamp(0.05, 4.0);
+            self.pos.z = self.pos.z.clamp(1.0, 4.0);
 
             self.scroll_vel -= self.scroll_vel * elapsed.mul(15.0).at_most(0.9);
         }

@@ -1,9 +1,8 @@
 #![allow(unused_qualifications)]
 
 use std::f64::consts::PI;
-use std::ops::Div;
 
-use glam::{dvec2, dvec3, vec2};
+use glam::{dvec2, dvec3, dvec4, vec2};
 use hexx::{Hex, HexBounds, HexLayout, HexOrientation};
 
 use crate::coord::TileCoord;
@@ -52,22 +51,8 @@ pub fn z_far() -> Double {
     10000.0
 }
 
-#[rustfmt::skip]
-pub fn perspective(fov_y: Double, a: Double, n: Double, f: Double) -> DMatrix4 {
-    let t = fov_y.div(2.0).tan();
-    let d = f - n;
-    let m = -(f * n);
-
-    DMatrix4::from_cols_array(&[
-        1.0 / (t * a), 0.0, 0.0, 0.0,
-        0.0, 1.0 / t, 0.0, 0.0,
-        0.0, 0.0, f / d, 1.0,
-        0.0, 0.0, m / d, 0.0,
-    ])
-}
-
 pub fn projection(aspect: Double, pi: Double) -> DMatrix4 {
-    perspective(pi / 2.0, aspect, z_near(), z_far())
+    DMatrix4::perspective_lh(pi / 2.0, aspect, z_near(), z_far())
 }
 
 pub fn camera_angle(z: Double) -> Double {
@@ -145,16 +130,16 @@ pub fn normalized_to_world(
     camera_pos: DVec3,
 ) -> DVec3 {
     let aspect = width / height;
-    let aspect_squared = aspect * aspect;
 
-    let eye = dvec3(0.0, 0.0, camera_pos.z);
-    let matrix = matrix(eye, aspect, PI);
+    let view = view(dvec3(0.0, 0.0, camera_pos.z)).inverse();
+    let projection = projection(aspect, PI).inverse();
 
-    let pos = dvec3(pos.x, pos.y, FAR);
-    let pos = matrix * pos.extend(1.0);
-    let pos = pos.truncate() * pos.w;
+    let pos = dvec4(pos.x, pos.y, camera_pos.z, camera_pos.z);
+    let pos = view * pos;
+    let pos = projection * pos;
+    let pos = pos.truncate() * pos.z;
 
-    dvec3(pos.x * aspect_squared, pos.y, pos.z) + camera_pos
+    dvec3(pos.x, pos.y, pos.z) + camera_pos
 }
 
 /// Gets the culling range from the camera's position
