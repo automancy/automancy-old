@@ -1,12 +1,13 @@
+use std::f64::consts::FRAC_PI_4;
+
+use automancy_defs::glam::{dvec3, vec3};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{vec2, Context, CursorIcon, Margin, ScrollArea, Sense, TopBottomPanel, Ui};
 use futures::channel::mpsc;
-use std::f32::consts::FRAC_PI_4;
 
-use automancy_defs::cgmath::{point3, Rotation3};
 use automancy_defs::id::Id;
 use automancy_defs::math;
-use automancy_defs::math::{rad, z_far, z_near, Matrix4, Quaternion};
+use automancy_defs::math::{z_far, z_near, Matrix4};
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::{Data, DataMap};
 
@@ -22,7 +23,8 @@ fn draw_tile_selection(
 ) {
     let size = ui.available_height();
     let projection =
-        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(point3(0.0, 0.0, 2.75));
+        math::perspective(FRAC_PI_4, 1.0, z_near(), z_far()) * math::view(dvec3(0.0, 0.0, 2.75));
+    let projection = projection.as_mat4();
 
     for id in setup.resource_man.ordered_tiles.iter().filter(|id| {
         if setup
@@ -73,15 +75,15 @@ fn draw_tile_selection(
             selection_send.try_send(*id).unwrap();
         }
 
-        let rotate = Quaternion::from_angle_x(rad(hover));
+        let rotate = Matrix4::from_rotation_x(hover);
 
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             GameEguiCallback::new(
                 InstanceData::default()
-                    .with_model_matrix(Matrix4::from(rotate))
+                    .with_model_matrix(rotate)
                     .with_projection(projection)
-                    .with_light_pos(point3(0.0, 4.0, 14.0), None),
+                    .with_light_pos(vec3(0.0, 4.0, 14.0), None),
                 model,
                 rect,
                 ui.ctx().screen_rect(),

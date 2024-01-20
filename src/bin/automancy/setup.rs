@@ -10,7 +10,6 @@ use automancy::game::{Game, GameMsg, TICK_INTERVAL};
 use automancy::input::InputHandler;
 use automancy::map::{Map, MapInfo, MAIN_MENU, MAP_PATH};
 use automancy::options::Options;
-use automancy_defs::coord::ChunkCoord;
 use automancy_defs::log;
 use automancy_defs::rendering::Vertex;
 use automancy_resources::kira::manager::backend::cpal::CpalBackend;
@@ -76,8 +75,6 @@ pub struct GameSetup {
     pub game_handle: Option<JoinHandle<()>>,
     /// the camera
     pub camera: Camera,
-    /// the last camera position, in chunk coord
-    pub camera_chunk_coord: ChunkCoord,
     /// the list of available maps
     pub maps: Vec<(MapInfo, String)>,
     /// the state of the input peripherals.
@@ -133,9 +130,6 @@ impl GameSetup {
 
         log::info!("Loading completed!");
 
-        // --- last setup ---
-        let camera_coord = camera.get_tile_coord();
-
         // --- event-loop ---
         Ok((
             GameSetup {
@@ -144,7 +138,6 @@ impl GameSetup {
                 game,
                 game_handle: Some(game_handle),
                 camera,
-                camera_chunk_coord: camera_coord.into(),
                 maps: Vec::new(),
                 input_handler: InputHandler::new(&options),
                 options,

@@ -1,39 +1,25 @@
 use std::mem::size_of;
 
 use bytemuck::{Pod, Zeroable};
-use cgmath::{vec3, vec4, EuclideanSpace, Matrix, MetricSpace, SquareMatrix};
 use egui::NumExt;
 use egui_wgpu::wgpu::{
     vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode,
 };
+use glam::{vec3, vec4};
 use gltf::animation::Interpolation;
 use gltf::scene::Transform;
-use hexagon_tiles::fractional::FractionalHex;
-use hexagon_tiles::traits::HexRound;
 
-use crate::coord::TileCoord;
-use crate::math;
-use crate::math::{
-    direction_to_angle, DPoint2, Double, Float, Matrix3, Matrix4, Point3, Vector3, Vector4,
-};
-
-pub fn lerp_coords_to_pixel(a: TileCoord, b: TileCoord, t: Double) -> DPoint2 {
-    let a = FractionalHex::new(a.q() as Double, a.r() as Double);
-    let b = FractionalHex::new(b.q() as Double, b.r() as Double);
-    let lerp = FractionalHex::lerp(a, b, t);
-
-    math::frac_hex_to_pixel(lerp)
-}
+use crate::math::{direction_to_angle, Float, Matrix3, Matrix4, Vec2, Vec3, Vec4};
 
 /// Produces a line shape.
-pub fn make_line(a: DPoint2, b: DPoint2) -> Matrix4 {
-    let mid = a.midpoint(b);
-    let d = a.distance(b) as Float;
+pub fn make_line(a: Vec2, b: Vec2) -> Matrix4 {
+    let mid = a.lerp(b, 0.5);
+    let d = a.distance(b);
     let theta = direction_to_angle(b - a);
 
-    Matrix4::from_translation(vec3(mid.x as Float, mid.y as Float, 0.1))
-        * Matrix4::from_angle_z(theta)
-        * Matrix4::from_nonuniform_scale(d.at_least(0.001), 0.1, 0.05)
+    Matrix4::from_translation(vec3(mid.x, mid.y, 0.1))
+        * Matrix4::from_rotation_z(theta)
+        * Matrix4::from_scale(vec3(d.at_least(0.001), 0.1, 0.05))
 }
 
 // vertex
@@ -73,7 +59,7 @@ impl Vertex {
 pub struct InstanceData {
     color_offset: VertexColor,
     alpha: Float,
-    light_pos: Vector4,
+    light_pos: Vec4,
     model_matrix: Matrix4,
     projection: Option<Matrix4>,
 }
@@ -84,7 +70,7 @@ impl Default for InstanceData {
             color_offset: [0.0, 0.0, 0.0, 0.0],
             alpha: 1.0,
             light_pos: vec4(0.0, 0.0, 0.0, 0.0),
-            model_matrix: Matrix4::identity(),
+            model_matrix: Matrix4::IDENTITY,
             projection: None,
         }
     }
@@ -92,29 +78,22 @@ impl Default for InstanceData {
 
 impl InstanceData {
     #[inline]
-    pub fn add_model_matrix_left(mut self, model_matrix: Matrix4) -> Self {
-        self.model_matrix = model_matrix * self.model_matrix;
+    pub fn add_model_matrix(mut self, model_matrix: Matrix4) -> Self {
+        self.model_matrix *= model_matrix;
 
         self
     }
 
     #[inline]
-    pub fn add_model_matrix_right(mut self, model_matrix: Matrix4) -> Self {
-        self.model_matrix = self.model_matrix * model_matrix;
+    pub fn add_translation(mut self, translation: Vec3) -> Self {
+        self.model_matrix *= Matrix4::from_translation(translation);
 
         self
     }
 
     #[inline]
-    pub fn add_translation(mut self, translation: Vector3) -> Self {
-        self.model_matrix = self.model_matrix * Matrix4::from_translation(translation);
-
-        self
-    }
-
-    #[inline]
-    pub fn add_scale(mut self, scale: Float) -> Self {
-        self.model_matrix = self.model_matrix * Matrix4::from_scale(scale);
+    pub fn add_scale(mut self, scale: Vec3) -> Self {
+        self.model_matrix *= Matrix4::from_scale(scale);
 
         self
     }
@@ -141,8 +120,8 @@ impl InstanceData {
     }
 
     #[inline]
-    pub fn with_light_pos(mut self, light_pos: Point3, light_strength: Option<Float>) -> Self {
-        self.light_pos = light_pos.to_vec().extend(light_strength.unwrap_or(1.0));
+    pub fn with_light_pos(mut self, light_pos: Vec3, light_strength: Option<Float>) -> Self {
+        self.light_pos = light_pos.extend(light_strength.unwrap_or(1.0));
 
         self
     }
@@ -202,7 +181,7 @@ impl From<InstanceData> for RawInstanceData {
             value.model_matrix
         };
 
-        let invert_transpose = value.model_matrix.invert().unwrap().transpose();
+        let invert_transpose = value.model_matrix.inverse().transpose();
 
         Self {
             color_offset: value.color_offset,
@@ -213,13 +192,13 @@ impl From<InstanceData> for RawInstanceData {
                 value.light_pos.z,
                 value.light_pos.w,
             ],
-            model_matrix: model_matrix.into(),
+            model_matrix: model_matrix.to_cols_array_2d(),
             normal_matrix: Matrix3::from_cols(
-                invert_transpose.x.truncate(),
-                invert_transpose.y.truncate(),
-                invert_transpose.z.truncate(),
+                invert_transpose.x_axis.truncate(),
+                invert_transpose.y_axis.truncate(),
+                invert_transpose.z_axis.truncate(),
             )
-            .into(),
+            .to_cols_array_2d(),
         }
     }
 }
@@ -276,10 +255,10 @@ impl Default for GameUBO {
 
 impl GameUBO {
     pub fn new(world: Matrix4) -> Self {
-        let world = Matrix4::from(FIX_COORD) * world;
+        let world = Matrix4::from_cols_array_2d(&FIX_COORD) * world;
 
         Self {
-            world_matrix: world.into(),
+            world_matrix: world.to_cols_array_2d(),
             ..Default::default()
         }
     }

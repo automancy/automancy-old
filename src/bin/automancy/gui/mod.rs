@@ -14,14 +14,14 @@ use std::time::Instant;
 use wgpu::util::DrawIndexedIndirect;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
-use crate::gui::item::{draw_item, SMALL_ITEM_ICON_SIZE};
+use crate::gui::item::SMALL_ITEM_ICON_SIZE;
 use crate::renderer::try_add_animation;
-use automancy_defs::cgmath::{vec3, Matrix4};
+use automancy_defs::glam::vec3;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
+use automancy_defs::math::Matrix4;
 use automancy_defs::rendering::InstanceData;
 use automancy_defs::{bytemuck, colors};
-use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
 
 #[cfg(debug_assertions)]
@@ -177,7 +177,7 @@ impl TextFieldState {
         field: TextField,
         hint_text: impl Into<WidgetText>,
         to_string: &'static impl Fn(&'a ResourceManager, &Id) -> &'a str,
-        item: &'static impl Fn(&'a ResourceManager, &Id) -> Option<&'a [ItemStack]>,
+        draw_item: &'static impl Fn(&mut Ui, &ResourceManager, &Id),
     ) {
         TextEdit::singleline(self.get(field))
             .hint_text(hint_text)
@@ -220,11 +220,7 @@ impl TextFieldState {
                         format!("{}:", to_string(resource_man, &id)),
                     );
 
-                    if let Some(stacks) = item(resource_man, &id) {
-                        for stack in stacks {
-                            draw_item(ui, resource_man, None, *stack, SMALL_ITEM_ICON_SIZE, false);
-                        }
-                    }
+                    draw_item(ui, resource_man, &id)
                 });
             }
         });
@@ -266,7 +262,7 @@ impl GameEguiCallback {
         let result = Self {
             instance: instance
                 .add_projection_left(Matrix4::from_translation(vec3(dx, dy, 0.0)))
-                .add_projection_right(Matrix4::from_nonuniform_scale(sx, sy, 1.0)),
+                .add_projection_right(Matrix4::from_scale(vec3(sx, sy, 1.0))),
             model,
             index: *counter,
         };

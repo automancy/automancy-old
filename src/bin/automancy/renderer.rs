@@ -26,15 +26,17 @@ use automancy::gpu::{
 };
 use automancy::input::KeyActions;
 use automancy::options::Options;
-use automancy_defs::cgmath::{vec3, EuclideanSpace, SquareMatrix};
 use automancy_defs::coord::TileCoord;
+use automancy_defs::glam::vec3;
 use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
-use automancy_defs::math::{deg, direction_to_angle, Double, Float, Matrix4, FAR};
-use automancy_defs::rendering::{lerp_coords_to_pixel, make_line, GameUBO, InstanceData};
+use automancy_defs::math::{
+    direction_to_angle, lerp_coords_to_pixel, Double, Float, Matrix4, FAR, HEX_GRID_LAYOUT,
+};
+use automancy_defs::rendering::{make_line, GameUBO, InstanceData};
 use automancy_defs::slice_group_by::GroupBy;
-use automancy_defs::{bytemuck, colors, math};
+use automancy_defs::{bytemuck, colors};
 use automancy_resources::data::Data;
 use automancy_resources::ResourceManager;
 
@@ -104,12 +106,7 @@ pub fn try_add_animation(
             .collect::<Vec<_>>();
         let anims = anims
             .binary_group_by_key(|v| v.0)
-            .map(|v| {
-                (
-                    v[0].0,
-                    v.iter().fold(Matrix4::identity(), |acc, v| acc * v.1),
-                )
-            })
+            .map(|v| (v[0].0, v.iter().fold(Matrix4::IDENTITY, |acc, v| acc * v.1)))
             .collect::<HashMap<_, _>>();
 
         animation_map.insert(model, anims);
@@ -133,7 +130,7 @@ impl Renderer {
 
         let culling_range = setup.camera.culling_range;
         let camera_pos = setup.camera.get_pos();
-        let camera_pos_float = camera_pos.cast::<Float>().unwrap();
+        let camera_pos_float = camera_pos.as_vec3();
 
         let mut animation_map = gui
             .renderer
@@ -168,7 +165,7 @@ impl Renderer {
             {
                 unit.instance = unit
                     .instance
-                    .add_model_matrix_right(Matrix4::from_angle_z(deg(theta)));
+                    .add_model_matrix(Matrix4::from_rotation_z(theta.to_radians()));
             } else if let Some(Data::Id(inactive)) = tile
                 .data
                 .get(&setup.resource_man.registry.data_ids.inactive_model)
@@ -184,8 +181,8 @@ impl Renderer {
                         .with_color_offset(colors::RED.to_array())
                         .with_light_pos(camera_pos_float, None)
                         .with_model_matrix(make_line(
-                            math::hex_to_pixel(*coord),
-                            math::hex_to_pixel(**link),
+                            HEX_GRID_LAYOUT.hex_to_world_pos(*coord),
+                            HEX_GRID_LAYOUT.hex_to_world_pos(**link),
                         )),
                     setup.resource_man.registry.model_ids.cube1x1,
                 ));
@@ -200,16 +197,16 @@ impl Renderer {
         let now = Instant::now();
 
         for ((source_coord, coord), instants) in transaction_records.iter() {
-            if culling_range.contains(*source_coord) && culling_range.contains(*coord) {
+            if culling_range.is_in_bounds(**source_coord) && culling_range.is_in_bounds(**coord) {
                 for (instant, TransactionRecord { stack, .. }) in instants {
                     let duration = now.duration_since(*instant);
                     let t = duration.as_secs_f64() / TRANSACTION_ANIMATION_SPEED.as_secs_f64();
 
-                    let point = lerp_coords_to_pixel(*source_coord, *coord, t);
+                    let point = lerp_coords_to_pixel(*source_coord, *coord, t as Float);
 
                     let direction = *coord - *source_coord;
-                    let direction = math::hex_to_pixel(direction.into());
-                    let theta = direction_to_angle(direction.to_vec());
+                    let direction = HEX_GRID_LAYOUT.hex_to_world_pos(*direction);
+                    let theta = direction_to_angle(direction);
 
                     let instance = InstanceData::default()
                         .with_model_matrix(
@@ -217,8 +214,8 @@ impl Renderer {
                                 point.x as Float,
                                 point.y as Float,
                                 (FAR + 0.025) as Float,
-                            )) * Matrix4::from_angle_z(theta)
-                                * Matrix4::from_scale(0.3),
+                            )) * Matrix4::from_rotation_z(theta)
+                                * Matrix4::from_scale(vec3(0.3, 0.3, 0.3)),
                         )
                         .with_light_pos(camera_pos_float, None);
                     let model = setup.resource_man.get_item_model(stack.item);
@@ -237,28 +234,22 @@ impl Renderer {
                 .unwrap()
                 .model;
 
-            for q in culling_range.start().q()..=culling_range.end().q() {
-                for r in culling_range.start().r()..=culling_range.end().r() {
-                    let coord = TileCoord::new(q, r);
+            for hex in culling_range.all_coords() {
+                let coord = TileCoord::from(hex);
 
-                    if !instances.contains_key(&coord) {
-                        let p = math::hex_to_pixel(coord.into());
+                if !instances.contains_key(&coord) {
+                    let p = HEX_GRID_LAYOUT.hex_to_world_pos(*coord);
 
-                        instances.insert(
-                            coord,
-                            RenderUnit {
-                                instance: InstanceData::default().with_model_matrix(
-                                    Matrix4::from_translation(vec3(
-                                        p.x as Float,
-                                        p.y as Float,
-                                        FAR as Float,
-                                    )),
-                                ),
-                                tile_id: none,
-                                model: none,
-                            },
-                        );
-                    }
+                    instances.insert(
+                        coord,
+                        RenderUnit {
+                            instance: InstanceData::default().with_model_matrix(
+                                Matrix4::from_translation(p.extend(FAR as Float)),
+                            ),
+                            tile_id: none,
+                            model: none,
+                        },
+                    );
                 }
             }
 
@@ -340,7 +331,7 @@ impl Renderer {
     ) -> Result<(), SurfaceError> {
         let size = self.gpu.window.inner_size();
         let factor = gui.context.pixels_per_point();
-        let matrix = setup.camera.get_matrix().cast::<Float>().unwrap();
+        let matrix = setup.camera.get_matrix().as_mat4();
 
         let (game_instances, game_draws, game_draw_count) =
             gpu::indirect_instance(&setup.resource_man, game_instances, true, animation_map);

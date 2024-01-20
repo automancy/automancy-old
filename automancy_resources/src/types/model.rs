@@ -4,7 +4,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use automancy_defs::cgmath::vec3;
+use automancy_defs::glam::vec3;
 use automancy_defs::gltf::animation::util::ReadOutputs;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw};
@@ -102,7 +102,7 @@ impl ResourceManager {
                             indices: read_indices,
                             name,
                             index,
-                            matrix: Matrix4::from(transform.clone().matrix()),
+                            matrix: Matrix4::from_cols_array_2d(&transform.clone().matrix()),
                             transform,
                         },
                     );
@@ -141,17 +141,18 @@ impl ResourceManager {
 
                             for (input, [x, y, z]) in inputs.zip(outputs) {
                                 read_inputs.push(input);
-                                read_outputs.push(Matrix4::from_nonuniform_scale(
+                                read_outputs.push(Matrix4::from_scale(vec3(
                                     x / sx,
                                     y / sy,
                                     z / sz,
-                                ));
+                                )));
                             }
                         }
                         ReadOutputs::Rotations(outputs) => {
                             for (input, output) in inputs.zip(outputs.into_f32()) {
                                 read_inputs.push(input);
-                                read_outputs.push(Quaternion::from(output).into());
+                                read_outputs
+                                    .push(Matrix4::from_quat(Quaternion::from_array(output)));
                             }
                         }
                         _ => {}

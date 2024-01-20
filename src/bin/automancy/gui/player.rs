@@ -1,14 +1,15 @@
 use std::time::Instant;
 
 use egui::{Context, Rect, ScrollArea, Ui, Window};
-use futures::executor::block_on;
 
-use automancy::game::{GameMsg, TAKE_ITEM_ANIMATION_SPEED};
+use automancy::game::TAKE_ITEM_ANIMATION_SPEED;
+use automancy_defs::glam::dvec3;
 use automancy_defs::hashbrown::HashMap;
+use automancy_defs::math;
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::item::Item;
 use automancy_resources::data::stack::ItemStack;
-use automancy_resources::data::Data;
+use automancy_resources::data::{Data, DataMap};
 
 use crate::event::EventLoopStorage;
 use crate::gui::item::{draw_item, MEDIUM_ITEM_ICON_SIZE};
@@ -52,15 +53,17 @@ fn take_item_animation(
         for (instant, src_rect) in animations {
             let d = now.duration_since(*instant).as_secs_f32()
                 / TAKE_ITEM_ANIMATION_SPEED.as_secs_f32();
+            let rect = src_rect.lerp_towards(&dst_rect, d);
 
             ui.ctx()
                 .layer_painter(ui.layer_id())
                 .add(egui_wgpu::Callback::new_paint_callback(
-                    src_rect.lerp_towards(&dst_rect, d),
+                    rect,
                     GameEguiCallback::new(
-                        InstanceData::default(),
+                        InstanceData::default()
+                            .with_projection(math::view(dvec3(0.0, 0.0, 1.0)).as_mat4()),
                         setup.resource_man.get_item_model(item),
-                        dst_rect,
+                        rect,
                         ui.ctx().screen_rect(),
                     ),
                 ));
@@ -68,7 +71,12 @@ fn take_item_animation(
     }
 }
 
-pub fn player(setup: &GameSetup, loop_store: &mut EventLoopStorage, context: &Context) {
+pub fn player(
+    setup: &GameSetup,
+    loop_store: &mut EventLoopStorage,
+    context: &Context,
+    game_data: &DataMap,
+) {
     Window::new(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.player_menu]
             .as_str(),
@@ -83,14 +91,8 @@ pub fn player(setup: &GameSetup, loop_store: &mut EventLoopStorage, context: &Co
                 .as_str(),
         );
 
-        if let Some(Data::Inventory(inventory)) = block_on(setup.game.call(
-            |reply| {
-                GameMsg::GetDataValue(setup.resource_man.registry.data_ids.player_inventory, reply)
-            },
-            None,
-        ))
-        .unwrap()
-        .unwrap()
+        if let Some(Data::Inventory(inventory)) =
+            game_data.get(&setup.resource_man.registry.data_ids.player_inventory)
         {
             ScrollArea::vertical().show(ui, |ui| {
                 for (id, amount) in inventory.iter() {

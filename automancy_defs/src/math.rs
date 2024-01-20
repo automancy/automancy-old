@@ -1,197 +1,137 @@
 #![allow(unused_qualifications)]
 
 use std::f64::consts::PI;
-use std::ops::{Div, Sub};
+use std::ops::Div;
 
-use cgmath::{point2, point3, vec2, vec3, Angle, BaseFloat, EuclideanSpace};
-use hexagon_tiles::fractional::FractionalHex;
-use hexagon_tiles::layout::{Layout, LAYOUT_ORIENTATION_POINTY};
-use hexagon_tiles::point::Point;
-use hexagon_tiles::traits::HexRound;
+use glam::{dvec2, dvec3, vec2};
+use hexx::{Hex, HexBounds, HexLayout, HexOrientation};
 
-use crate::coord::{TileHex, TileRange};
+use crate::coord::TileCoord;
 
-const HEX_GRID_LAYOUT: Layout = Layout {
-    orientation: LAYOUT_ORIENTATION_POINTY,
-    size: Point { x: 1.0, y: 1.0 },
-    origin: Point { x: 0.0, y: 0.0 },
+pub const HEX_GRID_LAYOUT: HexLayout = HexLayout {
+    orientation: HexOrientation::Pointy,
+    origin: Vec2::ZERO,
+    hex_size: Vec2::ONE,
+    invert_x: true,
+    invert_y: true,
 };
 
 pub const FAR: Double = 0.0;
 
 pub type Float = f32;
 
-pub type Rad = cgmath::Rad<Float>;
+pub type Vec2 = glam::Vec2;
+pub type Vec3 = glam::Vec3;
+pub type Vec4 = glam::Vec4;
 
-pub fn rad(n: Float) -> Rad {
-    cgmath::Rad(n)
-}
+pub type Matrix2 = glam::Mat2;
+pub type Matrix3 = glam::Mat3;
+pub type Matrix4 = glam::Mat4;
 
-pub type Deg = cgmath::Deg<Float>;
-
-pub fn deg(n: Float) -> Deg {
-    cgmath::Deg(n)
-}
-
-pub type Point1 = cgmath::Point1<Float>;
-pub type Point2 = cgmath::Point2<Float>;
-pub type Point3 = cgmath::Point3<Float>;
-
-pub type Vector1 = cgmath::Vector1<Float>;
-pub type Vector2 = cgmath::Vector2<Float>;
-pub type Vector3 = cgmath::Vector3<Float>;
-pub type Vector4 = cgmath::Vector4<Float>;
-
-pub type Matrix2 = cgmath::Matrix2<Float>;
-pub type Matrix3 = cgmath::Matrix3<Float>;
-pub type Matrix4 = cgmath::Matrix4<Float>;
-
-pub type Quaternion = cgmath::Quaternion<Float>;
+pub type Quaternion = glam::Quat;
 
 pub type Double = f64;
 
-pub type DPoint1 = cgmath::Point1<Double>;
-pub type DPoint2 = cgmath::Point2<Double>;
-pub type DPoint3 = cgmath::Point3<Double>;
+pub type DVec2 = glam::DVec2;
+pub type DVec3 = glam::DVec3;
+pub type DVec4 = glam::DVec4;
 
-pub type DVector1 = cgmath::Vector1<Double>;
-pub type DVector2 = cgmath::Vector2<Double>;
-pub type DVector3 = cgmath::Vector3<Double>;
-pub type DVector4 = cgmath::Vector4<Double>;
+pub type DMatrix2 = glam::DMat2;
+pub type DMatrix3 = glam::DMat3;
+pub type DMatrix4 = glam::DMat4;
 
-pub type DMatrix2 = cgmath::Matrix2<Double>;
-pub type DMatrix3 = cgmath::Matrix3<Double>;
-pub type DMatrix4 = cgmath::Matrix4<Double>;
+pub type DQuaternion = glam::DQuat;
 
-pub type DQuaternion = cgmath::Quaternion<Double>;
-
-/// 0.01
 #[inline]
-pub fn z_near<N: BaseFloat>() -> N {
-    let one = N::one();
-    let two = one + one;
-    let ten = two + two + two + two + two;
-
-    one / ten.powi(2)
+pub fn z_near() -> Double {
+    return 0.01;
 }
 
-/// 10000
 #[inline]
-pub fn z_far<N: BaseFloat>() -> N {
-    let one = N::one();
-    let two = one + one;
-    let ten = two + two + two + two + two;
-
-    ten.powi(4)
+pub fn z_far() -> Double {
+    return 10000.0;
 }
 
 #[rustfmt::skip]
-pub fn perspective<N: BaseFloat>(fov_y: N, a: N, n: N, f: N) -> cgmath::Matrix4<N> {
-    let zero = N::zero();
-    let one = N::one();
-    let two = one + one;
-
-    let t = fov_y.div(two).tan();
+pub fn perspective(fov_y: Double, a: Double, n: Double, f: Double) -> DMatrix4 {
+    let t = fov_y.div(2.0).tan();
     let d = f - n;
     let m = -(f * n);
 
-    cgmath::Matrix4::<N>::new(
-        one / (t * a), zero, zero, zero,
-        zero, one / t, zero, zero,
-        zero, zero, f / d, one,
-        zero, zero, m / d, zero,
-    )
+    DMatrix4::from_cols_array(&[
+        1.0 / (t * a), 0.0, 0.0, 0.0,
+        0.0, 1.0 / t, 0.0, 0.0,
+        0.0, 0.0, f / d, 1.0,
+        0.0, 0.0, m / d, 0.0,
+    ])
 }
 
-pub fn projection<N: BaseFloat>(aspect: N, pi: N) -> cgmath::Matrix4<N> {
-    let one = N::one();
-    let two = one + one;
-
-    perspective(pi / two, aspect, z_near(), z_far())
+pub fn projection(aspect: Double, pi: Double) -> DMatrix4 {
+    perspective(pi / 2.0, aspect, z_near(), z_far())
 }
 
-pub fn camera_angle<N: BaseFloat>(z: N) -> cgmath::Rad<N> {
+pub fn camera_angle(z: Double) -> Double {
     // TODO magic values
-    let max = N::from(6.5).unwrap();
+    let max = 6.5;
 
     if z < max {
-        let normalized = (max - z) / N::from(4.0).unwrap();
+        let normalized = (max - z) / 4.0;
 
-        cgmath::Rad(normalized / N::from(-1.5).unwrap())
+        normalized / -1.5
     } else {
-        cgmath::Rad(N::zero())
+        0.0
     }
 }
 
-pub fn view<N: BaseFloat>(pos: cgmath::Point3<N>) -> cgmath::Matrix4<N> {
-    cgmath::Matrix4::<N>::look_to_rh(
-        pos,
-        cgmath::Vector3::<N>::unit_z(),
-        cgmath::Vector3::<N>::unit_y(),
-    )
+pub fn view(pos: DVec3) -> DMatrix4 {
+    DMatrix4::look_to_rh(pos, dvec3(0.0, 0.0, 1.0), dvec3(0.0, 1.0, 0.0))
 }
 
-pub fn matrix<N: BaseFloat>(pos: cgmath::Point3<N>, aspect: N, pi: N) -> cgmath::Matrix4<N> {
+pub fn matrix(pos: DVec3, aspect: Double, pi: Double) -> DMatrix4 {
     let projection = projection(aspect, pi);
     let view = view(pos);
-    let angle = cgmath::Matrix4::<N>::from_angle_x(camera_angle(pos.z));
+    let angle = DMatrix4::from_rotation_x(camera_angle(pos.z));
 
     projection * angle * view
 }
 
-#[inline]
-pub fn pixel_to_hex<N: BaseFloat>(p: cgmath::Point2<N>) -> FractionalHex<Double> {
-    hexagon_tiles::layout::pixel_to_hex(
-        HEX_GRID_LAYOUT,
-        hexagon_tiles::point::point(p.x.to_f64().unwrap(), p.y.to_f64().unwrap()),
-    )
-}
+pub fn lerp_coords_to_pixel(a: TileCoord, b: TileCoord, t: Float) -> Vec2 {
+    let a = Vec2::new(a.x as Float, a.y as Float);
+    let b = Vec2::new(b.x as Float, b.y as Float);
+    let lerp = Vec2::lerp(a, b, t);
 
-#[inline]
-pub fn hex_to_pixel(hex: TileHex) -> DPoint2 {
-    let p = hexagon_tiles::layout::hex_to_pixel(HEX_GRID_LAYOUT, hex);
+    let p = HEX_GRID_LAYOUT.fractional_hex_to_world_pos(lerp);
 
-    point2(p.x, p.y)
-}
-
-#[inline]
-pub fn frac_hex_to_pixel(hex: FractionalHex<Double>) -> DPoint2 {
-    let p = hexagon_tiles::layout::frac_hex_to_pixel(HEX_GRID_LAYOUT, hex);
-
-    point2(p.x, p.y)
+    vec2(p.x, p.y)
 }
 
 /// Converts screen space coordinates into normalized coordinates.
 #[inline]
-pub fn screen_to_normalized((width, height): (Double, Double), c: DPoint2) -> DPoint2 {
-    let size = vec2(width, height) * 0.5;
+pub fn screen_to_normalized((width, height): (Double, Double), c: DVec2) -> DVec2 {
+    let size = dvec2(width, height) * 0.5;
 
-    let c = vec2(c.x, c.y);
-    let c = c.zip(size, Sub::sub);
-    let c = c.zip(size, Div::div);
+    let c = dvec2(c.x, c.y);
+    let c = c - size;
+    let c = c / size;
 
-    point2(c.x, c.y)
+    dvec2(c.x, c.y)
 }
 
 /// Gets the hex position being pointed at.
 #[inline]
 pub fn main_pos_to_hex(
     (width, height): (Double, Double),
-    main_pos: DPoint2,
-    camera_pos: DPoint3,
-) -> FractionalHex<Double> {
+    main_pos: DVec2,
+    camera_pos: DVec3,
+) -> Hex {
     let p = screen_to_world((width, height), main_pos, camera_pos);
 
-    pixel_to_hex(point2(p.x, p.y))
+    HEX_GRID_LAYOUT.world_pos_to_hex(vec2(p.x as Float, p.y as Float))
 }
 
 /// Converts screen coordinates to world coordinates.
 #[inline]
-pub fn screen_to_world(
-    (width, height): (Double, Double),
-    pos: DPoint2,
-    camera_pos: DPoint3,
-) -> DPoint3 {
+pub fn screen_to_world((width, height): (Double, Double), pos: DVec2, camera_pos: DVec3) -> DVec3 {
     let pos = screen_to_normalized((width, height), pos);
 
     normalized_to_world((width, height), pos, camera_pos)
@@ -201,36 +141,32 @@ pub fn screen_to_world(
 #[inline]
 pub fn normalized_to_world(
     (width, height): (Double, Double),
-    pos: DPoint2,
-    camera_pos: DPoint3,
-) -> DPoint3 {
+    pos: DVec2,
+    camera_pos: DVec3,
+) -> DVec3 {
     let aspect = width / height;
     let aspect_squared = aspect * aspect;
 
-    let eye = point3(0.0, 0.0, camera_pos.z);
+    let eye = dvec3(0.0, 0.0, camera_pos.z);
     let matrix = matrix(eye, aspect, PI);
 
-    let pos = vec3(pos.x, pos.y, FAR);
+    let pos = dvec3(pos.x, pos.y, FAR);
     let pos = matrix * pos.extend(1.0);
     let pos = pos.truncate() * pos.w;
 
-    point3(pos.x * aspect_squared, pos.y, pos.z) + camera_pos.to_vec()
+    dvec3(pos.x * aspect_squared, pos.y, pos.z) + camera_pos
 }
 
 /// Gets the culling range from the camera's position
-pub fn get_culling_range((width, height): (Double, Double), camera_pos: DPoint3) -> TileRange {
-    let a = normalized_to_world((width, height), point2(-2.0, -2.0), camera_pos);
-    let b = normalized_to_world((width, height), point2(2.0, 2.0), camera_pos);
-
-    let a = pixel_to_hex(point2(a.x, a.y)).round().into();
-    let b = pixel_to_hex(point2(b.x, b.y)).round().into();
-
-    TileRange::new(a, b).extend(2)
+pub fn get_culling_range((width, height): (Double, Double), camera_pos: DVec3) -> HexBounds {
+    HexBounds::new(
+        HEX_GRID_LAYOUT.world_pos_to_hex(vec2(camera_pos.x as Float, camera_pos.y as Float)),
+        ((width / height) * camera_pos.z.round()) as u32 + 8,
+    )
 }
 #[inline]
+pub fn direction_to_angle(d: Vec2) -> Float {
+    let angle = d.y.atan2(d.x);
 
-pub fn direction_to_angle(d: DVector2) -> Rad {
-    let angle = cgmath::Rad::atan2(d.y, d.x);
-
-    rad(angle.0.rem_euclid(PI) as Float)
+    angle.rem_euclid(std::f32::consts::PI)
 }

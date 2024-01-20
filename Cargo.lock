@@ -139,9 +139,9 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.6.9"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fde6067df7359f2d6335ec1a50c1f8f825801687d10da0cc4c6b08e3f6afd15"
+checksum = "6e2e1ebcb11de5c03c67de28a7df593d32191b44939c482e97702baaaa6ab6a5"
 dependencies = [
  "anstyle",
  "anstyle-parse",
@@ -190,15 +190,6 @@ name = "anyhow"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
-
-[[package]]
-name = "approx"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
-dependencies = [
- "num-traits",
-]
 
 [[package]]
 name = "arboard"
@@ -337,16 +328,16 @@ name = "automancy_defs"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "cgmath",
  "color-hex",
  "egui",
  "egui-wgpu",
  "egui-winit",
  "egui_extras",
  "flexstr",
+ "glam 0.24.2",
  "gltf",
  "hashbrown",
- "hexagon-tiles",
+ "hexx",
  "log",
  "ordered-float",
  "petgraph",
@@ -600,16 +591,6 @@ name = "cfg_aliases"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
-
-[[package]]
-name = "cgmath"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a98d30140e3296250832bbaaff83b27dcd6fa3cc70fb6f1f3e5c9c0023b5317"
-dependencies = [
- "approx",
- "num-traits",
-]
 
 [[package]]
 name = "chrono"
@@ -1174,16 +1155,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_logger"
-version = "0.10.2"
+name = "env_filter"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
+checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
 dependencies = [
- "humantime",
- "is-terminal",
  "log",
  "regex",
- "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eeb342678d785662fd2514be38c459bb925f02b68dd2a3e0f21d7ef82d979dd"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "env_filter",
+ "humantime",
+ "log",
 ]
 
 [[package]]
@@ -1297,26 +1288,6 @@ name = "float-cmp"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
-
-[[package]]
-name = "float_eq"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28a80e3145d8ad11ba0995949bbcf48b9df2be62772b3d351ef017dff6ecb853"
-dependencies = [
- "float_eq_derive",
-]
-
-[[package]]
-name = "float_eq_derive"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4292d34ca2b3c17d2bcd30181001402d43601e9ac599dfa9e416e44acb306f56"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "flume"
@@ -1538,6 +1509,15 @@ dependencies = [
 
 [[package]]
 name = "glam"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5418c17512bdf42730f9032c74e1ae39afc408745ebb2acf72fbc4691c17945"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "glam"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "151665d9be52f9bb40fc7966565d39666f2d1e69233571b71b87791c7e0528b3"
@@ -1707,19 +1687,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d3d0e0f38255e7fa3cf31335b3a56f05febd18025f4db5ef7a0cfb4f8da651f"
 
 [[package]]
-name = "hexagon-tiles"
-version = "0.2.0"
-source = "git+https://github.com/automancy/hexagon-tiles#8a48d9a13381f11dec230f333713cf6ea3763105"
-dependencies = [
- "float_eq",
- "num",
-]
-
-[[package]]
 name = "hexf-parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
+name = "hexx"
+version = "0.12.0"
+source = "git+https://github.com/automancy/hexx.git#a99fe95227762f5d5283e880c696397dd88fcb6e"
+dependencies = [
+ "glam 0.24.2",
+ "serde",
+]
 
 [[package]]
 name = "home"
@@ -1853,17 +1833,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "is-terminal"
-version = "0.4.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bad00257d07be169d870ab665980b06cdb366d792ad690bf2e76876dc503455"
-dependencies = [
- "hermit-abi",
- "rustix",
- "windows-sys 0.52.0",
-]
-
-[[package]]
 name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1980,7 +1949,7 @@ checksum = "ebf1a7c2430fc76940b1443d7d2f91d92238ec56a053f706357f9f3f09c70ff3"
 dependencies = [
  "atomic-arena",
  "cpal",
- "glam",
+ "glam 0.25.0",
  "mint",
  "ringbuf",
  "send_wrapper",
@@ -3263,9 +3232,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.12.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2593d31f82ead8df961d8bd23a64c2ccf2eb5dd34b0a34bfb4dd54011c72009e"
+checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
 name = "smartstring"
@@ -3957,9 +3926,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
+checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
 dependencies = [
  "getrandom",
 ]

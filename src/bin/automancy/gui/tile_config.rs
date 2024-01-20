@@ -8,7 +8,6 @@ use ractor::ActorRef;
 use automancy::game::GameMsg;
 use automancy::tile_entity::TileEntityMsg;
 use automancy_defs::coord::{TileCoord, TileHex};
-use automancy_defs::hexagon_tiles::traits::HexDirection;
 use automancy_defs::id::Id;
 use automancy_defs::math::Float;
 use automancy_resources::data::inventory::Inventory;
@@ -25,7 +24,7 @@ use crate::setup::GameSetup;
 
 /// Draws the direction selector.
 pub fn add_direction(ui: &mut Ui, target_coord: &mut Option<TileCoord>, n: usize) {
-    let coord = TileHex::NEIGHBORS[(n + 2) % 6];
+    let coord = TileHex::NEIGHBORS_COORDS[n % 6];
     let coord = Some(coord.into());
 
     ui.selectable_value(
@@ -33,11 +32,11 @@ pub fn add_direction(ui: &mut Ui, target_coord: &mut Option<TileCoord>, n: usize
         coord,
         match n {
             0 => "↗",
-            1 => "➡",
-            2 => "↘",
+            1 => "↖",
+            2 => "⬅",
             3 => "↙",
-            4 => "⬅",
-            5 => "↖",
+            4 => "↘",
+            5 => "➡",
             _ => "",
         },
     );
@@ -63,20 +62,20 @@ fn config_target(
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
             ui.add_space(15.0);
-            add_direction(ui, &mut new_target_coord, 5);
+            add_direction(ui, &mut new_target_coord, 1);
             add_direction(ui, &mut new_target_coord, 0);
         });
 
         ui.horizontal(|ui| {
-            add_direction(ui, &mut new_target_coord, 4);
+            add_direction(ui, &mut new_target_coord, 2);
             ui.selectable_value(&mut new_target_coord, None, "❌");
-            add_direction(ui, &mut new_target_coord, 1);
+            add_direction(ui, &mut new_target_coord, 5);
         });
 
         ui.horizontal(|ui| {
             ui.add_space(15.0);
             add_direction(ui, &mut new_target_coord, 3);
-            add_direction(ui, &mut new_target_coord, 2);
+            add_direction(ui, &mut new_target_coord, 4);
         });
     });
 
@@ -275,7 +274,19 @@ fn config_item(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.hint_search_item]
             .to_string(),
         &ResourceManager::item_name,
-        &ResourceManager::script_outputs,
+        &|ui, resource_man, id| {
+            draw_item(
+                ui,
+                resource_man,
+                None,
+                ItemStack {
+                    item: resource_man.registry.items[id],
+                    amount: 0,
+                },
+                SMALL_ITEM_ICON_SIZE,
+                false,
+            );
+        },
     );
 
     if new_item != current_item {
@@ -369,7 +380,18 @@ fn config_script(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.hint_search_script]
             .to_string(),
         &ResourceManager::script_name,
-        &ResourceManager::script_outputs,
+        &|ui, resource_man, id| {
+            if let Some(stacks) = resource_man
+                .registry
+                .scripts
+                .get(id)
+                .map(|script| script.instructions.outputs.as_slice())
+            {
+                for stack in stacks {
+                    draw_item(ui, resource_man, None, *stack, SMALL_ITEM_ICON_SIZE, false);
+                }
+            }
+        },
     );
 
     if new_script != current_script {

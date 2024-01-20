@@ -1,12 +1,13 @@
-use automancy_defs::cgmath::point3;
-use automancy_defs::math;
 use egui::{vec2, Rect, Response, Sense, Ui};
 
-use crate::gui::GameEguiCallback;
+use automancy_defs::glam::dvec3;
+use automancy_defs::math;
 use automancy_defs::math::Float;
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::ResourceManager;
+
+use crate::gui::GameEguiCallback;
 
 pub const SMALL_ITEM_ICON_SIZE: Float = 24.0;
 pub const MEDIUM_ITEM_ICON_SIZE: Float = 48.0;
@@ -51,7 +52,7 @@ pub fn draw_item(
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             GameEguiCallback::new(
-                InstanceData::default().with_projection(math::view(point3(0.0, 0.0, 1.0))),
+                InstanceData::default().with_projection(math::view(dvec3(0.0, 0.0, 1.0)).as_mat4()),
                 resource_man.get_item_model(stack.item),
                 rect,
                 ui.ctx().screen_rect(),

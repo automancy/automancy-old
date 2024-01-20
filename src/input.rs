@@ -1,5 +1,6 @@
 use std::mem;
 
+use automancy_defs::glam::dvec2;
 use serde::{Deserialize, Serialize};
 use winit::event::ElementState::{Pressed, Released};
 use winit::event::{
@@ -7,9 +8,8 @@ use winit::event::{
 };
 use winit::keyboard::{Key, NamedKey, SmolStr};
 
-use automancy_defs::cgmath::{point2, vec2};
 use automancy_defs::hashbrown::{HashMap, HashSet};
-use automancy_defs::math::{DPoint2, DVector2, Double};
+use automancy_defs::math::{DVec2, Double};
 
 use crate::options::Options;
 
@@ -84,9 +84,9 @@ pub mod actions {
 #[derive(Debug, Clone)]
 pub enum GameInputEvent {
     None,
-    MainPos { pos: DPoint2 },
-    MainMove { delta: DVector2 },
-    MouseWheel { delta: DVector2 },
+    MainPos { pos: DVec2 },
+    MainMove { delta: DVec2 },
+    MouseWheel { delta: DVec2 },
     MainPressed,
     MainReleased,
     AlternatePressed,
@@ -114,7 +114,7 @@ pub fn convert_input(
             WindowEvent::MouseWheel { delta, .. } => {
                 result = match delta {
                     MouseScrollDelta::PixelDelta(delta) => {
-                        let delta = vec2(
+                        let delta = dvec2(
                             delta.x / width * sensitivity,
                             delta.y / height * sensitivity,
                         );
@@ -122,7 +122,7 @@ pub fn convert_input(
                         MouseWheel { delta }
                     }
                     MouseScrollDelta::LineDelta(x, y) => {
-                        let delta = vec2(*x as Double * sensitivity, *y as Double * sensitivity);
+                        let delta = dvec2(*x as Double * sensitivity, *y as Double * sensitivity);
 
                         MouseWheel { delta }
                     }
@@ -160,7 +160,7 @@ pub fn convert_input(
                 };
             }
             WindowEvent::CursorMoved { position, .. } => {
-                let pos = point2(position.x, position.y);
+                let pos = dvec2(position.x, position.y);
 
                 result = MainPos { pos };
             }
@@ -177,7 +177,7 @@ pub fn convert_input(
         use GameInputEvent::*;
 
         if let DeviceEvent::MouseMotion { delta } = event {
-            let delta = vec2(delta.0 * sensitivity, -delta.1 * sensitivity);
+            let delta = dvec2(delta.0 * sensitivity, -delta.1 * sensitivity);
 
             result = MainMove { delta };
         }
@@ -188,9 +188,9 @@ pub fn convert_input(
 
 #[derive(Debug, Clone)]
 pub struct InputHandler {
-    pub main_pos: DPoint2,
-    pub scroll: Option<DVector2>,
-    pub main_move: Option<DVector2>,
+    pub main_pos: DVec2,
+    pub scroll: Option<DVec2>,
+    pub main_move: Option<DVec2>,
 
     pub main_held: bool,
     pub alternate_held: bool,
@@ -212,7 +212,7 @@ pub struct InputHandler {
 impl InputHandler {
     pub fn new(options: &Options) -> Self {
         Self {
-            main_pos: point2(0.0, 0.0),
+            main_pos: dvec2(0.0, 0.0),
             scroll: None,
             main_move: None,
 

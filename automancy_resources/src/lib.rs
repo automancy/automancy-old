@@ -19,7 +19,6 @@ use walkdir::WalkDir;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::flexstr::SharedStr;
 use automancy_defs::hashbrown::HashMap;
-use automancy_defs::hexagon_tiles::traits::HexRotate;
 use automancy_defs::id;
 use automancy_defs::id::{id_static, Id, Interner};
 use automancy_defs::rendering::{Animation, Model};
@@ -153,10 +152,14 @@ impl ResourceManager {
                 .register_fn("to_string", |v: TileCoord| v.to_string())
                 .register_iterator::<Vec<TileCoord>>()
                 .register_fn("TileCoord", TileCoord::new)
-                .register_fn("rotate_left", |n: TileCoord| n.rotate_left())
-                .register_fn("rotate_right", |n: TileCoord| n.rotate_right())
-                .register_get("q", |v: &mut TileCoord| v.q())
-                .register_get("r", |v: &mut TileCoord| v.r())
+                .register_fn("rotate_left", |n: TileCoord| {
+                    TileCoord::from(n.counter_clockwise())
+                })
+                .register_fn("rotate_right", |n: TileCoord| {
+                    TileCoord::from(n.clockwise())
+                })
+                .register_get("q", |v: &mut TileCoord| v.x)
+                .register_get("r", |v: &mut TileCoord| v.y)
                 .register_fn("+", TileCoord::add)
                 .register_fn("-", TileCoord::sub)
                 .register_fn("-", TileCoord::neg)
@@ -361,12 +364,5 @@ impl ResourceManager {
         } else {
             &self.translates.none
         }
-    }
-
-    pub fn script_outputs(&self, id: &Id) -> Option<&[ItemStack]> {
-        self.registry
-            .scripts
-            .get(id)
-            .map(|script| script.instructions.outputs.as_slice())
     }
 }

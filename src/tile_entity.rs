@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use rand::{thread_rng, RngCore};
-use rhai::{Array, CallFnOptions, Dynamic, ImmutableString, Scope, INT};
+use rhai::{CallFnOptions, Dynamic, ImmutableString, Scope, INT};
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::id::Id;
@@ -180,7 +180,7 @@ impl TileEntity {
         None
     }
 
-    fn handle_rhai_result(&self, state: &mut TileEntityState, result: Array) {
+    fn handle_rhai_result(&self, state: &mut TileEntityState, result: rhai::Array) {
         if result.is_empty() {
             return;
         }
@@ -300,7 +300,7 @@ impl TileEntity {
 
             match result {
                 Ok(result) => {
-                    if let Some(result) = result.try_cast::<Array>() {
+                    if let Some(result) = result.try_cast::<rhai::Array>() {
                         return self.handle_rhai_transaction_result(
                             state,
                             stack,
@@ -393,7 +393,7 @@ impl Actor for TileEntity {
 
                     match result {
                         Ok(result) => {
-                            if let Some(result) = result.try_cast::<Array>() {
+                            if let Some(result) = result.try_cast::<rhai::Array>() {
                                 self.handle_rhai_result(state, result);
                             }
                         }
@@ -524,7 +524,7 @@ impl Actor for TileEntity {
 
                     match result {
                         Ok(result) => {
-                            if let Some(result) = result.try_cast::<Array>() {
+                            if let Some(result) = result.try_cast::<rhai::Array>() {
                                 self.handle_rhai_result(state, result);
                             }
                         }

@@ -52,7 +52,7 @@ def main():
             v.select = True
 
         bmesh.ops.translate(bm, vec=(-1.0, -1.0, 0.0), space=bpy.context.object.matrix_world, verts=bm.verts)
-        bpy.ops.mesh.remove_doubles(threshold=0.20)
+        bpy.ops.mesh.remove_doubles(threshold=0.05)
 
         bmesh.update_edit_mesh(bpy.context.edit_object.data)
         bpy.ops.object.mode_set(mode='OBJECT')

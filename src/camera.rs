@@ -3,21 +3,21 @@ use std::ops::Mul;
 
 use egui::NumExt;
 
-use automancy_defs::cgmath::{point2, point3, vec2, InnerSpace};
-use automancy_defs::coord::{TileCoord, TileRange};
-use automancy_defs::hexagon_tiles::traits::HexRound;
+use automancy_defs::coord::TileCoord;
+use automancy_defs::glam::{dvec2, dvec3, vec2};
+use automancy_defs::hexx::HexBounds;
 use automancy_defs::math;
-use automancy_defs::math::{matrix, DMatrix4, DPoint2, DPoint3, DVector2, Double};
+use automancy_defs::math::{matrix, DMatrix4, DVec2, DVec3, Double, Float, HEX_GRID_LAYOUT};
 
 use crate::input::InputHandler;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
-    pos: DPoint3,
-    move_vel: DVector2,
+    pos: DVec3,
+    move_vel: DVec2,
     scroll_vel: Double,
 
-    pub culling_range: TileRange,
+    pub culling_range: HexBounds,
     pub pointing_at: TileCoord,
     matrix: DMatrix4,
 }
@@ -34,18 +34,18 @@ pub fn fit_z(mut z: Double) -> Double {
     2.5 + z * 4.0
 }
 
-pub fn fit_pos(DPoint3 { x, y, z }: DPoint3) -> DPoint3 {
-    point3(x, y, fit_z(z))
+pub fn fit_pos(DVec3 { x, y, z }: DVec3) -> DVec3 {
+    dvec3(x, y, fit_z(z))
 }
 
 impl Camera {
     pub fn new((width, height): (Double, Double)) -> Self {
-        let pos = point3(0.0, 0.0, 2.0);
+        let pos = dvec3(0.0, 0.0, 2.0);
         let matrix = matrix(fit_pos(pos), width / height, PI);
 
         Self {
             pos,
-            move_vel: vec2(0.0, 0.0),
+            move_vel: dvec2(0.0, 0.0),
             scroll_vel: 0.0,
 
             culling_range: math::get_culling_range((width, height), fit_pos(pos)),
@@ -55,7 +55,7 @@ impl Camera {
     }
 
     /// Returns the position of the camera.
-    pub fn get_pos(&self) -> DPoint3 {
+    pub fn get_pos(&self) -> DVec3 {
         fit_pos(self.pos)
     }
 
@@ -66,16 +66,16 @@ impl Camera {
 
 impl Camera {
     /// Sets the position the camera is centered on.
-    pub fn update_pointing_at(&mut self, main_pos: DPoint2, (width, height): (Double, Double)) {
+    pub fn update_pointing_at(&mut self, main_pos: DVec2, (width, height): (Double, Double)) {
         let p = math::main_pos_to_hex((width, height), main_pos, self.get_pos());
 
-        self.pointing_at = p.round().into();
+        self.pointing_at = p.into();
     }
 
     /// Gets the TileCoord the camera is pointing at.
     pub fn get_tile_coord(&self) -> TileCoord {
-        math::pixel_to_hex(point2(self.pos.x, self.pos.y))
-            .round()
+        HEX_GRID_LAYOUT
+            .world_pos_to_hex(vec2(self.pos.x as Float, self.pos.y as Float))
             .into()
     }
 
@@ -96,7 +96,7 @@ impl Camera {
     pub fn update_pos(&mut self, (width, height): (Double, Double), elapsed: Double) {
         let m = elapsed * 100.0;
 
-        if self.move_vel.magnitude2() > 0.000001 {
+        if self.move_vel.length_squared() > 0.000001 {
             self.pos.x += self.move_vel.x * m;
             self.pos.y += self.move_vel.y * m;
 
@@ -105,8 +105,8 @@ impl Camera {
 
         if self.scroll_vel.abs() > 0.00005 {
             self.pos.z += self.scroll_vel * m;
-            //self.pos.z = self.pos.z.clamp(0.05, 4.0);
-            self.pos.z = self.pos.z.clamp(1.0, 4.0);
+            self.pos.z = self.pos.z.clamp(0.05, 4.0);
+            //self.pos.z = self.pos.z.clamp(1.0, 4.0);
 
             self.scroll_vel -= self.scroll_vel * elapsed.mul(15.0).at_most(0.9);
         }
@@ -116,7 +116,7 @@ impl Camera {
     }
 
     /// Called when the camera is scrolled.
-    fn on_scroll(&mut self, delta: DVector2) {
+    fn on_scroll(&mut self, delta: DVec2) {
         const MAX_SCROLL_VEL: Double = 0.2;
 
         let y = delta.y;
@@ -130,10 +130,13 @@ impl Camera {
     }
 
     /// Called when the camera is moving.
-    fn on_moving_main(&mut self, delta: DVector2) {
+    fn on_moving_main(&mut self, delta: DVec2) {
         const MAX_MOVE_VEL: Double = 2.0;
 
         self.move_vel += delta / 600.0;
-        self.move_vel = self.move_vel.map(|v| v.clamp(-MAX_MOVE_VEL, MAX_MOVE_VEL));
+        self.move_vel = self.move_vel.clamp(
+            dvec2(-MAX_MOVE_VEL, -MAX_MOVE_VEL),
+            dvec2(MAX_MOVE_VEL, MAX_MOVE_VEL),
+        );
     }
 }

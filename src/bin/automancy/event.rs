@@ -11,24 +11,24 @@ use futures::executor::block_on;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 
-use crate::gui;
 use automancy::game::{GameMsg, PlaceTileResponse};
 use automancy::gpu::AnimationMap;
 use automancy::input;
 use automancy::input::KeyActions;
 use automancy::tile_entity::TileEntityMsg;
-use automancy_defs::cgmath::{point2, vec3};
 use automancy_defs::colors::ColorAdj;
-use automancy_defs::coord::{ChunkCoord, TileCoord};
+use automancy_defs::coord::TileCoord;
+use automancy_defs::glam::{dvec2, vec3};
 use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::{HashMap, HashSet};
 use automancy_defs::id::Id;
-use automancy_defs::math::{Float, Matrix4, FAR};
+use automancy_defs::math::{Float, Matrix4, FAR, HEX_GRID_LAYOUT};
 use automancy_defs::rendering::{make_line, InstanceData};
 use automancy_defs::{colors, log, math, window};
 use automancy_resources::data::item::Item;
 use automancy_resources::data::Data;
 
+use crate::gui;
 use crate::gui::{
     error, info, menu, player, popup, tile_config, tile_selection, GameEguiCallback, GuiState,
     PopupState, Screen, TextField,
@@ -137,7 +137,7 @@ fn render(
 
     gui.renderer.callback_resources.insert(AnimationMap::new());
 
-    let camera_pos_float = setup.camera.get_pos().cast().unwrap();
+    let camera_pos_float = setup.camera.get_pos().as_vec3();
 
     let (selection_send, mut selection_recv) = mpsc::channel(1);
 
@@ -166,7 +166,7 @@ fn render(
                             .unwrap();
 
                         if setup.input_handler.key_active(KeyActions::Player) {
-                            player::player(setup, loop_store, &gui.context);
+                            player::player(setup, loop_store, &gui.context, &game_data);
                         }
 
                         // tile_info
@@ -198,7 +198,7 @@ fn render(
                             setup.input_handler.main_pos,
                             setup.camera.get_pos(),
                         );
-                        let cursor_pos = point2(cursor_pos.x, cursor_pos.y);
+                        let cursor_pos = dvec2(cursor_pos.x, cursor_pos.y);
 
                         if let Some(tile) = loop_store
                             .selected_tile_id
@@ -211,9 +211,7 @@ fn render(
                                         InstanceData::default()
                                             .with_alpha(0.6)
                                             .with_light_pos(camera_pos_float, None)
-                                            .with_projection(
-                                                setup.camera.get_matrix().cast().unwrap(),
-                                            )
+                                            .with_projection(setup.camera.get_matrix().as_mat4())
                                             .with_model_matrix(Matrix4::from_translation(vec3(
                                                 cursor_pos.x as Float,
                                                 cursor_pos.y as Float,
@@ -233,8 +231,8 @@ fn render(
                                     .with_color_offset(colors::RED.to_array())
                                     .with_light_pos(camera_pos_float, None)
                                     .with_model_matrix(make_line(
-                                        math::hex_to_pixel(*coord),
-                                        cursor_pos,
+                                        HEX_GRID_LAYOUT.hex_to_world_pos(*coord),
+                                        cursor_pos.as_vec2(),
                                     )),
                                 setup.resource_man.registry.model_ids.cube1x1,
                             ));
@@ -288,8 +286,8 @@ fn render(
                             .with_color_offset(colors::LIGHT_BLUE.to_array())
                             .with_light_pos(camera_pos_float, None)
                             .with_model_matrix(make_line(
-                                math::hex_to_pixel(*start),
-                                math::hex_to_pixel(*setup.camera.pointing_at),
+                                HEX_GRID_LAYOUT.hex_to_world_pos(*start),
+                                HEX_GRID_LAYOUT.hex_to_world_pos(*setup.camera.pointing_at),
                             )),
                         setup.resource_man.registry.model_ids.cube1x1,
                     ));
@@ -463,16 +461,6 @@ pub fn on_event(
         let ignore_move = loop_store.selected_tile_id.is_some();
 
         setup.camera.handle_input(&setup.input_handler, ignore_move);
-
-        {
-            let camera_chunk_coord: ChunkCoord = setup.camera.get_tile_coord().into();
-
-            if setup.camera_chunk_coord != camera_chunk_coord {
-                setup.camera_chunk_coord = camera_chunk_coord;
-
-                // camera chunk coord update logic ...
-            }
-        }
 
         if setup.input_handler.key_active(KeyActions::Escape) {
             // one by one

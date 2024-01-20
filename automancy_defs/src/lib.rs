@@ -1,9 +1,9 @@
 pub use bytemuck;
-pub use cgmath;
 pub use flexstr;
+pub use glam;
 pub use gltf;
 pub use hashbrown;
-pub use hexagon_tiles;
+pub use hexx;
 pub use log;
 pub use petgraph as graph;
 pub use slice_group_by;

@@ -9,14 +9,13 @@ use ractor::rpc::CallResult;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use rayon::prelude::*;
 
-use automancy_defs::cgmath::vec3;
-use automancy_defs::coord::{TileCoord, TileHex, TileRange};
+use automancy_defs::coord::{TileCoord, TileHex};
 use automancy_defs::hashbrown::HashMap;
-use automancy_defs::hexagon_tiles::traits::HexDirection;
+use automancy_defs::hexx::HexBounds;
 use automancy_defs::id::Id;
-use automancy_defs::math::{Float, Matrix4, FAR};
+use automancy_defs::log;
+use automancy_defs::math::{Float, Matrix4, FAR, HEX_GRID_LAYOUT};
 use automancy_defs::rendering::InstanceData;
-use automancy_defs::{log, math};
 use automancy_resources::data::item::item_match;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::{Data, DataMap};
@@ -114,12 +113,12 @@ pub enum GameMsg {
     TakeDataMap(RpcReplyPort<DataMap>),
     SetDataMap(DataMap),
     GetDataValue(Id, RpcReplyPort<Option<Data>>),
-    SetData(Id, Data),
+    SetDataValue(Id, Data),
     RemoveData(Id),
 
     /// get rendering information
     RenderInfoRequest {
-        culling_range: TileRange,
+        culling_range: HexBounds,
         reply: RpcReplyPort<RenderInfo>,
     },
 
@@ -229,7 +228,7 @@ impl Actor for Game {
                     Tick => {
                         tick(state);
                     }
-                    SetData(key, value) => {
+                    SetDataValue(key, value) => {
                         state.map.data.insert(key, value);
                     }
                     RemoveData(key) => {
@@ -243,7 +242,7 @@ impl Actor for Game {
                             .map
                             .tiles
                             .iter()
-                            .filter(|(coord, _)| culling_range.contains(**coord))
+                            .filter(|(coord, _)| culling_range.is_in_bounds(***coord))
                             .flat_map(|(coord, id)| {
                                 self.resource_man
                                     .registry
@@ -251,18 +250,14 @@ impl Actor for Game {
                                     .get(id)
                                     .map(|tile| self.resource_man.get_model(tile.model))
                                     .map(|model| {
-                                        let p = math::hex_to_pixel((*coord).into());
+                                        let p = HEX_GRID_LAYOUT.hex_to_world_pos((*coord).into());
 
                                         (
                                             *coord,
                                             RenderUnit {
                                                 instance: InstanceData::default()
                                                     .with_model_matrix(Matrix4::from_translation(
-                                                        vec3(
-                                                            p.x as Float,
-                                                            p.y as Float,
-                                                            FAR as Float,
-                                                        ),
+                                                        p.extend(FAR as Float),
                                                     )),
                                                 tile_id: *id,
                                                 model,
@@ -367,7 +362,10 @@ impl Actor for Game {
                         if let Some(adjacent) = script.adjacent {
                             let mut fulfilled = false;
 
-                            for neighbor in TileHex::NEIGHBORS.iter().map(|v| coord + (*v).into()) {
+                            for neighbor in TileHex::NEIGHBORS_COORDS
+                                .iter()
+                                .map(|v| coord + (*v).into())
+                            {
                                 if let Some(id) = state.map.tiles.get(&neighbor) {
                                     if item_match(&self.resource_man, *id, adjacent) {
                                         fulfilled = true;
