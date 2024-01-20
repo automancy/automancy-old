@@ -44,12 +44,12 @@ pub type DQuaternion = glam::DQuat;
 
 #[inline]
 pub fn z_near() -> Double {
-    return 0.01;
+    0.01
 }
 
 #[inline]
 pub fn z_far() -> Double {
-    return 10000.0;
+    10000.0
 }
 
 #[rustfmt::skip]
