@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::f32::consts::FRAC_PI_6;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -32,7 +33,7 @@ use automancy_defs::gui::Gui;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::{
-    direction_to_angle, lerp_coords_to_pixel, Double, Float, Matrix4, FAR, HEX_GRID_LAYOUT,
+    direction_to_angle, lerp_coords_to_pixel, Double, Float, Matrix4, FAR, HEX_GRID_LAYOUT, SQRT_3,
 };
 use automancy_defs::rendering::{make_line, GameUBO, InstanceData};
 use automancy_defs::slice_group_by::GroupBy;
@@ -150,6 +151,8 @@ impl Renderer {
 
         let (mut instances, all_data) = map_render_info;
 
+        let mut direction_previews = Vec::new();
+
         for (coord, unit) in instances.iter_mut() {
             let tile = setup
                 .resource_man
@@ -166,6 +169,25 @@ impl Renderer {
                 unit.instance = unit
                     .instance
                     .add_model_matrix(Matrix4::from_rotation_z(theta.to_radians()));
+
+                if let Data::Color(color) = tile
+                    .data
+                    .get(&setup.resource_man.registry.data_ids.direction_color)
+                    .unwrap_or(&Data::Color(colors::ORANGE))
+                {
+                    direction_previews.push((
+                        InstanceData::default()
+                            .with_color_offset(color.to_array())
+                            .with_model_matrix(
+                                unit.instance.get_model_matrix()
+                                    * Matrix4::from_rotation_z(FRAC_PI_6 * 5.0)
+                                    * Matrix4::from_scale(vec3(0.1, SQRT_3, 0.01))
+                                    * Matrix4::from_translation(vec3(0.0, 0.5, 0.0)),
+                            ),
+                        setup.resource_man.registry.model_ids.cube1x1,
+                        (),
+                    ))
+                }
             } else if let Some(Data::Id(inactive)) = tile
                 .data
                 .get(&setup.resource_man.registry.data_ids.inactive_model)
@@ -308,6 +330,8 @@ impl Renderer {
             .into_iter()
             .map(|(instance, id)| (instance, id, ()))
             .collect::<Vec<_>>();
+
+        game_instances.append(&mut direction_previews);
 
         game_instances.sort_by_key(|v| v.1);
         in_world_item_instances.sort_by_key(|v| v.1);

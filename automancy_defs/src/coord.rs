@@ -38,41 +38,22 @@ impl TileCoord {
         format!("{},{}", self.x, self.y)
     }
 
-    pub const TOP_RIGHT: Self = Self(TileHex::NEIGHBORS_COORDS[0]);
-    pub const TOP_LEFT: Self = Self(TileHex::NEIGHBORS_COORDS[1]);
-    pub const LEFT: Self = Self(TileHex::NEIGHBORS_COORDS[2]);
-    pub const BOTTOM_LEFT: Self = Self(TileHex::NEIGHBORS_COORDS[3]);
-    pub const BOTTOM_RIGHT: Self = Self(TileHex::NEIGHBORS_COORDS[4]);
-    pub const RIGHT: Self = Self(TileHex::NEIGHBORS_COORDS[5]);
-
-    pub const DIAG_TOP_RIGHT: Self = Self(TileHex::DIAGONAL_COORDS[0]);
-    pub const DIAG_TOP: Self = Self(TileHex::DIAGONAL_COORDS[1]);
-    pub const DIAG_TOP_LEFT: Self = Self(TileHex::DIAGONAL_COORDS[2]);
-    pub const DIAG_BOTTOM_LEFT: Self = Self(TileHex::DIAGONAL_COORDS[3]);
-    pub const DIAG_BOTTOM: Self = Self(TileHex::DIAGONAL_COORDS[4]);
-    pub const DIAG_BOTTOM_RIGHT: Self = Self(TileHex::DIAGONAL_COORDS[5]);
+    pub const TOP_RIGHT: Self = Self(TileHex::NEIGHBORS_COORDS[3]);
+    pub const RIGHT: Self = Self(TileHex::NEIGHBORS_COORDS[2]);
+    pub const BOTTOM_RIGHT: Self = Self(TileHex::NEIGHBORS_COORDS[1]);
+    pub const BOTTOM_LEFT: Self = Self(TileHex::NEIGHBORS_COORDS[0]);
+    pub const LEFT: Self = Self(TileHex::NEIGHBORS_COORDS[5]);
+    pub const TOP_LEFT: Self = Self(TileHex::NEIGHBORS_COORDS[4]);
 
     /// Creates a list of the neighbors
     pub fn neighbors(self) -> [Self; 6] {
         [
             self + Self::TOP_RIGHT,
-            self + Self::TOP_LEFT,
-            self + Self::LEFT,
-            self + Self::BOTTOM_LEFT,
-            self + Self::BOTTOM_RIGHT,
             self + Self::RIGHT,
-        ]
-    }
-
-    /// Creates a list of the diagonals
-    pub fn diagonals(self) -> [Self; 6] {
-        [
-            self + Self::DIAG_TOP_RIGHT,
-            self + Self::DIAG_TOP,
-            self + Self::DIAG_TOP_LEFT,
-            self + Self::DIAG_BOTTOM_LEFT,
-            self + Self::DIAG_BOTTOM,
-            self + Self::DIAG_BOTTOM_RIGHT,
+            self + Self::BOTTOM_RIGHT,
+            self + Self::BOTTOM_LEFT,
+            self + Self::LEFT,
+            self + Self::TOP_LEFT,
         ]
     }
 }

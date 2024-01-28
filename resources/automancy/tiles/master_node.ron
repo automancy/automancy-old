@@ -3,7 +3,7 @@
     function: Some("master_node"),
     model: "master_node",
     data: ({
-        "inactive_model": Id("master_node_inactive"),
+        "direction_color": Color("ff955e"),
         "linking": Bool(true),
         "default_tile": Bool(true),
     }),

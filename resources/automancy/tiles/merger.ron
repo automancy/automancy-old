@@ -3,7 +3,7 @@
     function: Some("merger"),
     model: "merger",
     data: ({
-        "inactive_model": Id("transfer_tile_inactive"),
+        "direction_color": Color("ff4a40"),
         "default_tile": Bool(true),
     }),
 )

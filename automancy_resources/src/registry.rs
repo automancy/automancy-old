@@ -42,6 +42,7 @@ pub struct DataIds {
     pub link: Id,
     pub player_inventory: Id,
 
+    pub direction_color: Id,
     pub storage_takeable: Id,
     pub inactive_model: Id,
     pub not_targeted: Id,

@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::collections::{BTreeMap, HashSet};
 use std::ops::{Deref, DerefMut};
 
+use egui::Rgba;
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +24,7 @@ pub enum Data {
     Coord(TileCoord),
     VecCoord(Vec<TileCoord>),
     Id(Id),
+    Color(Rgba),
     VecId(Vec<Id>),
     SetId(HashSet<Id>),
     Amount(ItemAmount),
@@ -96,6 +98,7 @@ impl Data {
             Data::SetId(v) => Dynamic::from(v),
             Data::Amount(v) => Dynamic::from_int(v),
             Data::Bool(v) => Dynamic::from_bool(v),
+            Data::Color(v) => Dynamic::from(v),
         }
     }
 
@@ -167,6 +170,7 @@ impl Data {
             ),
             Data::Amount(v) => DataRaw::Amount(*v),
             Data::Bool(v) => DataRaw::Bool(*v),
+            Data::Color(v) => DataRaw::Color(hex::encode(v.to_srgba_unmultiplied())),
         })
     }
 }
@@ -225,6 +229,7 @@ pub enum DataRaw {
     Coord(TileCoord),
     VecCoord(Vec<TileCoord>),
     Id(IdRaw),
+    Color(String),
     VecId(Vec<IdRaw>),
     SetId(Vec<IdRaw>),
     Amount(ItemAmount),
@@ -250,6 +255,15 @@ impl DataRaw {
             ),
             DataRaw::Amount(v) => Data::Amount(*v),
             DataRaw::Bool(v) => Data::Bool(*v),
+            DataRaw::Color(v) => {
+                let mut color = hex::decode(v).ok()?.into_iter();
+                Data::Color(Rgba::from_srgba_premultiplied(
+                    color.next()?,
+                    color.next()?,
+                    color.next()?,
+                    color.next().unwrap_or(255),
+                ))
+            }
         })
     }
 }
@@ -278,28 +292,23 @@ impl DataMapRaw {
         DataMap(
             self.0
                 .iter()
-                .map(|(key, value)| {
-                    (
-                        IdRaw::parse(key).to_id(interner),
-                        match value {
-                            DataRaw::Inventory(v) => Data::Inventory(v.to_inventory(interner)),
-                            DataRaw::Coord(v) => Data::Coord(*v),
-                            DataRaw::VecCoord(v) => Data::VecCoord(v.clone()),
-                            DataRaw::Id(v) => Data::Id(interner.get_or_intern(v.to_string())),
-                            DataRaw::VecId(v) => Data::VecId(
-                                v.iter()
-                                    .map(|id| interner.get_or_intern(id.to_string()))
-                                    .collect(),
-                            ),
-                            DataRaw::SetId(v) => Data::SetId(
-                                v.iter()
-                                    .map(|id| interner.get_or_intern(id.to_string()))
-                                    .collect(),
-                            ),
-                            DataRaw::Amount(v) => Data::Amount(*v),
-                            DataRaw::Bool(v) => Data::Bool(*v),
-                        },
-                    )
+                .flat_map(|(key, value)| {
+                    match value {
+                        DataRaw::Id(v) => Some(Data::Id(interner.get_or_intern(v.to_string()))),
+                        DataRaw::VecId(v) => Some(Data::VecId(
+                            v.iter()
+                                .map(|id| interner.get_or_intern(id.to_string()))
+                                .collect(),
+                        )),
+                        DataRaw::SetId(v) => Some(Data::SetId(
+                            v.iter()
+                                .map(|id| interner.get_or_intern(id.to_string()))
+                                .collect(),
+                        )),
+
+                        rest => rest.try_to_data(interner),
+                    }
+                    .map(|v| (IdRaw::parse(key).to_id(interner), v))
                 })
                 .collect(),
         )

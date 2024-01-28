@@ -3,8 +3,8 @@
     function: Some("sorter"),
     model: "sorter",
     data: ({
+        "direction_color": Color("98ffa0"),
         "item_type": Id("#any"),
-        "inactive_model": Id("transfer_tile_inactive"),
         "default_tile": Bool(true),
     }),
 )

@@ -11,9 +11,11 @@ pub const HEX_GRID_LAYOUT: HexLayout = HexLayout {
     orientation: HexOrientation::Pointy,
     origin: Vec2::ZERO,
     hex_size: Vec2::ONE,
-    invert_x: true,
-    invert_y: true,
+    invert_x: false,
+    invert_y: false,
 };
+
+pub const SQRT_3: Float = 1.732_050_8;
 
 pub const FAR: Double = 0.0;
 
@@ -85,7 +87,7 @@ pub fn lerp_coords_to_pixel(a: TileCoord, b: TileCoord, t: Float) -> Vec2 {
     let b = Vec2::new(b.x as Float, b.y as Float);
     let lerp = Vec2::lerp(a, b, t);
 
-    let p = HEX_GRID_LAYOUT.fractional_hex_to_world_pos(lerp);
+    let p = HEX_GRID_LAYOUT.fract_hex_to_world_pos(lerp);
 
     vec2(p.x, p.y)
 }

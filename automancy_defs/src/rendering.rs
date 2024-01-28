@@ -106,6 +106,11 @@ impl InstanceData {
     }
 
     #[inline]
+    pub fn get_model_matrix(self) -> Matrix4 {
+        self.model_matrix
+    }
+
+    #[inline]
     pub fn add_alpha(mut self, alpha: Float) -> Self {
         self.alpha *= alpha;
 
@@ -138,6 +143,11 @@ impl InstanceData {
         self.projection = Some(projection);
 
         self
+    }
+
+    #[inline]
+    pub fn get_projection(self) -> Option<Matrix4> {
+        self.projection
     }
 
     #[inline]
