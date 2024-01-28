@@ -1,5 +1,5 @@
-use automancy::gpu;
-use automancy::gpu::{AnimationMap, GlobalBuffers, GuiResources};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use egui::epaint::Shadow;
 use egui::{
@@ -9,13 +9,11 @@ use egui_wgpu::{CallbackResources, CallbackTrait};
 use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
 use lazy_static::lazy_static;
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use wgpu::util::DrawIndexedIndirect;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
-use crate::gui::item::SMALL_ITEM_ICON_SIZE;
-use crate::renderer::try_add_animation;
+use automancy::gpu;
+use automancy::gpu::{AnimationMap, GlobalBuffers, GuiResources};
 use automancy_defs::glam::vec3;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
@@ -23,6 +21,9 @@ use automancy_defs::math::Matrix4;
 use automancy_defs::rendering::InstanceData;
 use automancy_defs::{bytemuck, colors};
 use automancy_resources::ResourceManager;
+
+use crate::gui::item::SMALL_ITEM_ICON_SIZE;
+use crate::renderer::try_add_animation;
 
 #[cfg(debug_assertions)]
 pub mod debug;
@@ -252,12 +253,13 @@ impl GameEguiCallback {
         let mut counter = INDEX_COUNTER.lock().unwrap();
 
         let inside = screen_rect.intersect(rect);
+        let sign = rect.center() - inside.center();
 
         let sx = rect.width() / inside.width();
         let sy = rect.height() / inside.height();
 
-        let dx = -(1.0 - sx);
-        let dy = -(1.0 - sy);
+        let dx = (sx - 1.0) * sign.x.signum();
+        let dy = (sy - 1.0) * sign.y.signum();
 
         let result = Self {
             instance: instance
