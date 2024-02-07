@@ -1,6 +1,5 @@
 (
     id: "philosophers_stone",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("fire", 256),

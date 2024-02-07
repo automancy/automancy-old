@@ -53,9 +53,6 @@ pub struct TileEntityState {
 
     /// Rhai scope
     scope: Option<Scope<'static>>,
-
-    /// Are adjacent tiles requirement fulfilled
-    adjacent_fulfilled: bool,
 }
 
 impl TileEntityState {
@@ -66,8 +63,6 @@ impl TileEntityState {
             data: Default::default(),
 
             scope: Default::default(),
-
-            adjacent_fulfilled: true,
         }
     }
 }
@@ -91,9 +86,6 @@ pub enum TileEntityMsg {
     ExtractRequest {
         requested_from_id: Id,
         requested_from_coord: TileCoord,
-    },
-    AdjacentState {
-        fulfilled: bool,
     },
     SetData(DataMap),
     SetDataValue(Id, Data),
@@ -341,29 +333,10 @@ impl Actor for TileEntity {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            Tick { tick_count } => {
+            Tick {
+                tick_count: _tick_count,
+            } => {
                 let tile = self.resource_man.registry.tiles.get(&self.id).unwrap();
-
-                if tick_count % 10 == 0 {
-                    if let Some(Data::Id(script)) =
-                        state.data.get(self.resource_man.registry.data_ids.script)
-                    {
-                        if let Some(script) = self.resource_man.registry.scripts.get(&script) {
-                            state
-                                .game
-                                .send_message(GameMsg::CheckAdjacent {
-                                    script: script.clone(),
-                                    coord: self.coord,
-                                    self_coord: self.coord,
-                                })
-                                .unwrap();
-                        }
-                    }
-                }
-
-                if !state.adjacent_fulfilled {
-                    return Ok(());
-                }
 
                 if let Some((ast, default_scope, function_id)) = tile
                     .function
@@ -531,9 +504,6 @@ impl Actor for TileEntity {
                         Err(err) => log_function_err(function_id, &err),
                     }
                 }
-            }
-            AdjacentState { fulfilled } => {
-                state.adjacent_fulfilled = fulfilled;
             }
         }
 

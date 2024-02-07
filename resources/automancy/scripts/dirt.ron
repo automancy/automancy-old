@@ -1,6 +1,5 @@
 (
     id: "dirt",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("gravel", 6),

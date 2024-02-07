@@ -1,6 +1,5 @@
 (
     id: "dirt_to_earth",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("dirt", 1),

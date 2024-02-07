@@ -1,6 +1,5 @@
 (
     id: "gravel",
-    adjacent: None,
     instructions: (
         inputs: None,
         output: [

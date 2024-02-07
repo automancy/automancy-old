@@ -1,6 +1,5 @@
 (
     id: "mud_to_water",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("mud", 1),

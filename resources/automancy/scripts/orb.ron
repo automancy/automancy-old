@@ -1,6 +1,5 @@
 (
     id: "orb",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("glass", 256),

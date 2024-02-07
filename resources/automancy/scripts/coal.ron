@@ -1,6 +1,5 @@
 (
     id: "coal",
-    adjacent: None,
     instructions: (
         inputs: None,
         output: [

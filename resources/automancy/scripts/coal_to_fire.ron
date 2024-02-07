@@ -1,6 +1,5 @@
 (
     id: "coal_to_fire",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("coal", 1),

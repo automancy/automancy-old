@@ -1,6 +1,5 @@
 (
     id: "coal_to_order",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("coal", 1),

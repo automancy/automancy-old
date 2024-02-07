@@ -1,6 +1,5 @@
 (
     id: "sand_to_air",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("sand", 1),

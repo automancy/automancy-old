@@ -26,8 +26,6 @@ pub struct InstructionsRaw {
 #[derive(Debug, Clone)]
 pub struct Script {
     pub id: Id,
-
-    pub adjacent: Option<Id>,
     pub instructions: Instructions,
 }
 
@@ -71,13 +69,7 @@ impl ResourceManager {
                 .collect(),
         };
 
-        let adjacent = script.adjacent.map(|id| id.to_id(&mut self.interner));
-
-        let script = Script {
-            id,
-            instructions,
-            adjacent,
-        };
+        let script = Script { id, instructions };
 
         self.registry.scripts.insert(id, script);
 

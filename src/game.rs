@@ -9,17 +9,15 @@ use ractor::rpc::CallResult;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use rayon::prelude::*;
 
-use automancy_defs::coord::{TileCoord, TileHex};
+use automancy_defs::coord::TileCoord;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::hexx::HexBounds;
 use automancy_defs::id::Id;
 use automancy_defs::log;
 use automancy_defs::math::{Float, Matrix4, FAR, HEX_GRID_LAYOUT};
 use automancy_defs::rendering::InstanceData;
-use automancy_resources::data::item::item_match;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::{Data, DataMap};
-use automancy_resources::types::script::Script;
 use automancy_resources::ResourceManager;
 
 use crate::game::GameMsg::*;
@@ -91,13 +89,6 @@ pub enum GameMsg {
     },
     MoveTiles(Vec<TileCoord>, TileCoord, bool),
     Undo,
-    /// checks for the adjacent tiles against the script
-    CheckAdjacent {
-        script: Script,
-        coord: TileCoord,
-        self_coord: TileCoord,
-    },
-
     /// load a map
     LoadMap(Arc<ResourceManager>, String),
     /// take the map
@@ -352,37 +343,6 @@ impl Actor for Game {
                     ForwardMsgToTile(coord, msg) => {
                         if let Some(tile_entity) = state.tile_entities.get(&coord) {
                             tile_entity.send_message(msg).unwrap();
-                        }
-                    }
-                    CheckAdjacent {
-                        script,
-                        coord,
-                        self_coord,
-                    } => {
-                        if let Some(adjacent) = script.adjacent {
-                            let mut fulfilled = false;
-
-                            for neighbor in TileHex::NEIGHBORS_COORDS
-                                .iter()
-                                .map(|v| coord + (*v).into())
-                            {
-                                if let Some(id) = state.map.tiles.get(&neighbor) {
-                                    if item_match(&self.resource_man, *id, adjacent) {
-                                        fulfilled = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if let Some(entity) = state.tile_entities.get(&self_coord) {
-                                entity
-                                    .send_message(TileEntityMsg::AdjacentState { fulfilled })
-                                    .unwrap();
-                            }
-                        } else if let Some(entity) = state.tile_entities.get(&self_coord) {
-                            entity
-                                .send_message(TileEntityMsg::AdjacentState { fulfilled: true })
-                                .unwrap();
                         }
                     }
                     StopTicking => {

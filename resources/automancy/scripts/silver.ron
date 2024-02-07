@@ -1,6 +1,5 @@
 (
     id: "silver",
-    adjacent: None,
     instructions: (
         inputs: Some([
             ("water", 16),
