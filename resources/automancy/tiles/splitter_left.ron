@@ -3,7 +3,8 @@
     function: Some("splitter_left"),
     model: "splitter_left",
     data: ({
+        "category": Id("transfer"),
         "not_targeted": Bool(true),
-        "default_tile": Bool(true)
+        "default_tile": Bool(true),
     }),
 )

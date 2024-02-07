@@ -3,6 +3,7 @@
     function: Some("machine"),
     model: "basic_still",
     data: ({
+        "category": Id("basic"),
         "scripts": VecId([
             "coal_to_fire",
             "coal_to_chaos",

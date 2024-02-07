@@ -37,6 +37,9 @@ fn load_resources(track: TrackHandle) -> (Arc<ResourceManager>, Vec<Vertex>, Vec
             resource_man.load_items(&dir).expect("Error loading items");
             resource_man.load_tags(&dir).expect("Error loading tags");
             resource_man
+                .load_categories(&dir)
+                .expect("Error loading categories");
+            resource_man
                 .load_scripts(&dir)
                 .expect("Error loading scripts");
             resource_man
@@ -57,7 +60,10 @@ fn load_resources(track: TrackHandle) -> (Arc<ResourceManager>, Vec<Vertex>, Vec
         });
 
     resource_man.compile_researches();
+    resource_man.ordered_tiles();
     resource_man.ordered_items();
+    resource_man.ordered_categories();
+
     let (vertices, indices) = resource_man.compile_models();
 
     (Arc::new(resource_man), vertices, indices)

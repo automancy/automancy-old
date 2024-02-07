@@ -3,6 +3,7 @@
     function: Some("sorter"),
     model: "sorter",
     data: ({
+        "category": Id("transfer"),
         "direction_color": Color("98ffa0"),
         "item_type": Id("#any"),
         "default_tile": Bool(true),

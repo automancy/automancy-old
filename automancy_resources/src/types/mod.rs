@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod category;
 pub mod font;
 pub mod function;
 pub mod item;

@@ -109,6 +109,7 @@ pub struct ResourceManager {
 
     pub ordered_tiles: Vec<Id>,
     pub ordered_items: Vec<Id>,
+    pub ordered_categories: Vec<Id>,
     pub all_models: HashMap<Id, (HashMap<usize, Model>, Vec<Animation>)>,
     pub all_index_ranges: HashMap<Id, HashMap<usize, IndexRange>>,
 }
@@ -294,6 +295,7 @@ impl ResourceManager {
                 tiles: Default::default(),
                 scripts: Default::default(),
                 tags: Default::default(),
+                categories: Default::default(),
                 items: Default::default(),
                 researches: Default::default(),
                 researches_id_map: Default::default(),
@@ -316,6 +318,7 @@ impl ResourceManager {
 
             ordered_tiles: vec![],
             ordered_items: vec![],
+            ordered_categories: vec![],
             all_index_ranges: Default::default(),
             all_models: Default::default(),
         }
@@ -361,6 +364,21 @@ impl ResourceManager {
     pub fn try_tile_name(&self, id: Option<&Id>) -> &str {
         if let Some(id) = id {
             self.tile_name(id)
+        } else {
+            &self.translates.none
+        }
+    }
+
+    pub fn category_name(&self, id: &Id) -> &str {
+        match self.translates.categories.get(id) {
+            Some(name) => name,
+            None => &self.translates.unnamed,
+        }
+    }
+
+    pub fn try_category_name(&self, id: Option<&Id>) -> &str {
+        if let Some(id) = id {
+            self.category_name(id)
         } else {
             &self.translates.none
         }

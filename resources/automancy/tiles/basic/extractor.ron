@@ -3,6 +3,7 @@
     function: Some("machine"),
     model: "basic_extractor",
     data: ({
+        "category": Id("basic"),
         "scripts": VecId([
             "coal",
             "gravel",

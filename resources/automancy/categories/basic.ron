@@ -1,0 +1,5 @@
+(
+    id: "basic",
+    ord: 1000,
+    icon: "basic_extractor",
+)

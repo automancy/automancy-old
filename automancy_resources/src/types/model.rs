@@ -10,7 +10,7 @@ use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw};
 use automancy_defs::math::{Matrix4, Quaternion};
 use automancy_defs::rendering::{Animation, Model, Vertex};
-use automancy_defs::{gltf, id, log};
+use automancy_defs::{gltf, log};
 
 use crate::data::item::Item;
 use crate::{load_recursively, ResourceManager, RON_EXT};
@@ -185,37 +185,6 @@ impl ResourceManager {
     }
 
     pub fn compile_models(&mut self) -> (Vec<Vertex>, Vec<u16>) {
-        let mut ids = self
-            .registry
-            .tiles
-            .iter()
-            .flat_map(|(id, _)| self.interner.resolve(*id))
-            .map(IdRaw::parse)
-            .collect::<Vec<_>>();
-
-        ids.sort_unstable();
-
-        if let Some(none_idx) =
-            ids.iter().enumerate().find_map(
-                |(idx, id)| {
-                    if id == &id::NONE {
-                        Some(idx)
-                    } else {
-                        None
-                    }
-                },
-            )
-        {
-            ids.swap(none_idx, 0);
-        }
-
-        let ids = ids
-            .into_iter()
-            .flat_map(|id| self.interner.get(id.to_string()))
-            .collect();
-
-        self.ordered_tiles = ids;
-
         // indices vertices
         let mut vertices = vec![];
         let mut indices = HashMap::new();

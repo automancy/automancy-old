@@ -44,6 +44,7 @@ pub struct GuiState {
     pub show_debugger: bool,
     pub previous: Option<Screen>,
     pub text_field: TextFieldState,
+    pub tile_selection_category: Option<Id>,
 }
 
 /// The state of the main game GUI.
@@ -101,6 +102,7 @@ impl Default for GuiState {
             show_debugger: false,
             previous: None,
             text_field: Default::default(),
+            tile_selection_category: None,
         }
     }
 }

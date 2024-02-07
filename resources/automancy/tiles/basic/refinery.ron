@@ -3,6 +3,7 @@
     function: Some("machine"),
     model: "basic_refinery",
     data: ({
+        "category": Id("basic"),
         "scripts": VecId([
             "sand",
             "dirt",

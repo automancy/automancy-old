@@ -27,8 +27,8 @@
         "merger": "Merger",
         "none": "None",
         "void": "Resource® Void™",
-        "splitter_left": "Left Splitter",
-        "splitter_right": "Right Splitter",
+        "splitter_left": "Splitter (Left)",
+        "splitter_right": "Splitter (Right)",
         "copper_mine": "Copper Mine",
         "sorter": "Item Sorter",
         "small_storage": "Small Storage",
@@ -53,6 +53,11 @@
         "gravel": "Gravel",
         "mud": "Mud",
         "coal_to_fire": "Coal to Fire",
+    },
+    categories: {
+        "basic": "Basic Tiles",
+        "transfer": "Trasnfer Tiles",
+        "network": "Network Tiles",
     },
     gui: {
         "info": "Info",

@@ -178,6 +178,7 @@ fn render(
                         // tile_selections
                         tile_selection::tile_selections(
                             setup,
+                            loop_store,
                             &gui.context,
                             selection_send,
                             &game_data,

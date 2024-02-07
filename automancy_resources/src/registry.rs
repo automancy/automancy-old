@@ -5,6 +5,7 @@ use automancy_defs::id::Id;
 use automancy_macros::IdReg;
 
 use crate::data::item::Item;
+use crate::types::category::Category;
 use crate::types::research::Research;
 use crate::types::script::Script;
 use crate::types::tag::Tag;
@@ -16,6 +17,7 @@ pub struct Registry {
     pub tiles: HashMap<Id, Tile>,
     pub scripts: HashMap<Id, Script>,
     pub tags: HashMap<Id, Tag>,
+    pub categories: HashMap<Id, Category>,
     pub items: HashMap<Id, Item>,
     pub researches: StableDiGraph<Research, ()>,
     pub researches_id_map: HashMap<Id, NodeIndex>,
@@ -51,6 +53,7 @@ pub struct DataIds {
     pub linking: Id,
     pub default_tile: Id,
     pub unlocked_researches: Id,
+    pub category: Id,
 }
 
 #[derive(Copy, Clone, IdReg)]

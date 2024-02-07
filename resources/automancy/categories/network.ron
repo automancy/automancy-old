@@ -1,0 +1,5 @@
+(
+    id: "network",
+    ord: -1000000,
+    icon: "master_node",
+)

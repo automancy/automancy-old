@@ -58,4 +58,23 @@ impl ResourceManager {
 
         Ok(())
     }
+
+    pub fn ordered_tiles(&mut self) {
+        let mut ids = self.registry.tiles.keys().cloned().collect::<Vec<_>>();
+
+        ids.sort_by_key(|id| self.tile_name(id));
+
+        if let Some(none_idx) = ids.iter().enumerate().find_map(|(idx, id)| {
+            if *id == self.registry.none {
+                Some(idx)
+            } else {
+                None
+            }
+        }) {
+            let old = ids.remove(none_idx);
+            ids.insert(0, old);
+        }
+
+        self.ordered_tiles = ids;
+    }
 }
