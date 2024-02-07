@@ -1,7 +1,4 @@
-use std::rc::Rc;
-use std::sync::Arc;
-
-use egui_wgpu::wgpu::util::{BufferInitDescriptor, DeviceExt, DrawIndexedIndirect};
+use egui_wgpu::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use egui_wgpu::wgpu::{
     AddressMode, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
@@ -11,11 +8,13 @@ use egui_wgpu::wgpu::{
     PipelineLayoutDescriptor, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology,
     Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension,
+    ShaderStages, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension,
     TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
     TextureViewDimension, VertexState,
 };
-use wgpu::AdapterInfo;
+use std::rc::Rc;
+use wgpu::util::DrawIndexedIndirectArgs;
+use wgpu::{AdapterInfo, Surface};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
@@ -673,7 +672,7 @@ pub fn indirect_instance<T: Clone>(
     animation_map: &AnimationMap,
 ) -> (
     Vec<RawInstanceData>,
-    HashMap<Id, Vec<(DrawIndexedIndirect, T)>>,
+    HashMap<Id, Vec<(DrawIndexedIndirectArgs, T)>>,
     u32,
 ) {
     let compiled_instances = compile_instances(resource_man, instances, animation_map);
@@ -690,12 +689,12 @@ pub fn indirect_instance<T: Clone>(
                     let size = instances.len() as u32;
                     let index_range = resource_man.all_index_ranges[id][&instances[0].0];
 
-                    let command = DrawIndexedIndirect {
-                        base_index: index_range.offset,
-                        vertex_offset: 0,
-                        vertex_count: index_range.size,
-                        base_instance: base_instance_counter,
+                    let command = DrawIndexedIndirectArgs {
+                        first_index: index_range.offset,
+                        index_count: index_range.size,
+                        first_instance: base_instance_counter,
                         instance_count: size,
+                        base_vertex: 0,
                     };
 
                     base_instance_counter += size;
@@ -712,12 +711,12 @@ pub fn indirect_instance<T: Clone>(
                 let size = 1;
                 let index_range = resource_man.all_index_ranges[id][&instance.0];
 
-                let command = DrawIndexedIndirect {
-                    base_index: index_range.offset,
-                    vertex_offset: 0,
-                    vertex_count: index_range.size,
-                    base_instance: base_instance_counter,
+                let command = DrawIndexedIndirectArgs {
+                    first_index: index_range.offset,
+                    index_count: index_range.size,
+                    first_instance: base_instance_counter,
                     instance_count: size,
+                    base_vertex: 0,
                 };
 
                 base_instance_counter += size;
@@ -1068,20 +1067,20 @@ impl IntermediateResources {
     }
 }
 
-pub struct Gpu {
+pub struct Gpu<'a> {
     vsync: bool,
 
-    pub window: Arc<Window>,
+    pub window: &'a Window,
 
     pub adapter_info: AdapterInfo,
     pub instance: Instance,
     pub device: Device,
     pub queue: Queue,
-    pub surface: Surface,
+    pub surface: Surface<'a>,
     pub config: SurfaceConfiguration,
 }
 
-impl Gpu {
+impl<'a> Gpu<'a> {
     fn pick_present_mode(vsync: bool) -> PresentMode {
         if vsync {
             PresentMode::Fifo
@@ -1112,7 +1111,7 @@ impl Gpu {
         shared_resources.create(&self.device, &self.config, render_resources);
     }
 
-    pub async fn new(window: Window, vsync: bool) -> Self {
+    pub async fn new(window: &'a Window, vsync: bool) -> Self {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -1122,10 +1121,7 @@ impl Gpu {
             ..Default::default()
         });
 
-        // # Safety
-        //
-        // The surface needs to live as long as the window that created it.
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let surface = instance.create_surface(window).unwrap();
 
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
@@ -1139,10 +1135,11 @@ impl Gpu {
         let (device, queue) = adapter
             .request_device(
                 &DeviceDescriptor {
-                    features: Features::INDIRECT_FIRST_INSTANCE | Features::MULTI_DRAW_INDIRECT,
+                    required_features: Features::INDIRECT_FIRST_INSTANCE
+                        | Features::MULTI_DRAW_INDIRECT,
                     // WebGL doesn't support all of wgpu's features, so if
                     // we're building for the web we'll have to disable some.
-                    limits: if cfg!(target_arch = "wasm32") {
+                    required_limits: if cfg!(target_arch = "wasm32") {
                         Limits::downlevel_webgl2_defaults()
                     } else {
                         Limits::default()
@@ -1170,6 +1167,7 @@ impl Gpu {
             present_mode: Self::pick_present_mode(vsync),
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
+            desired_maximum_frame_latency: 2,
         };
 
         surface.configure(&device, &config);
@@ -1177,7 +1175,7 @@ impl Gpu {
         Gpu {
             vsync: false,
 
-            window: Arc::new(window),
+            window,
 
             adapter_info: adapter.get_info(),
             instance,

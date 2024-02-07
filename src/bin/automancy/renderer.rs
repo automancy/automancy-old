@@ -5,7 +5,6 @@ use std::time::Instant;
 
 use arboard::{Clipboard, ImageData};
 use egui::Rgba;
-use egui_wgpu::renderer::ScreenDescriptor;
 use egui_wgpu::wgpu::{
     BufferAddress, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor,
     ImageCopyBuffer, ImageDataLayout, IndexFormat, LoadOp, Maintain, MapMode, Operations,
@@ -13,6 +12,7 @@ use egui_wgpu::wgpu::{
     SurfaceError, TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor,
     COPY_BUFFER_ALIGNMENT, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
+use egui_wgpu::ScreenDescriptor;
 use futures::executor::block_on;
 use image::{EncodableLayout, RgbaImage};
 use num::PrimInt;
@@ -43,17 +43,17 @@ use automancy_resources::ResourceManager;
 
 use crate::setup::GameSetup;
 
-pub struct Renderer {
-    pub gpu: Gpu,
+pub struct Renderer<'a> {
+    pub gpu: Gpu<'a>,
     pub shared_resources: SharedResources,
     pub render_resources: RenderResources,
     pub global_buffers: Arc<GlobalBuffers>,
     pub fps_limit: Double,
 }
 
-impl Renderer {
+impl<'a> Renderer<'a> {
     pub fn new(
-        gpu: Gpu,
+        gpu: Gpu<'a>,
         shared_resources: SharedResources,
         render_resources: RenderResources,
         global_buffers: Arc<GlobalBuffers>,
@@ -114,7 +114,7 @@ pub fn try_add_animation(
     }
 }
 
-impl Renderer {
+impl<'a> Renderer<'a> {
     pub fn render(
         &mut self,
         setup: &GameSetup,
@@ -779,7 +779,7 @@ impl Renderer {
             ((size + alignment - T::one()) / alignment) * alignment
         }
 
-        let block_size = output.texture.format().block_size(None).unwrap();
+        let block_size = output.texture.format().block_copy_size(None).unwrap();
         let texture_dim = output.texture.size();
         let buffer_dim = texture_dim.physical_size(output.texture.format());
         let padded_width = size_align(buffer_dim.width * block_size, COPY_BYTES_PER_ROW_ALIGNMENT);

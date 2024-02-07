@@ -5,11 +5,11 @@ use egui::epaint::Shadow;
 use egui::{
     Frame, Margin, PaintCallbackInfo, Rect, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText,
 };
-use egui_wgpu::{CallbackResources, CallbackTrait};
+use egui_wgpu::{CallbackResources, CallbackTrait, ScreenDescriptor};
 use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
 use lazy_static::lazy_static;
-use wgpu::util::DrawIndexedIndirect;
+use wgpu::util::DrawIndexedIndirectArgs;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
 use automancy::gpu;
@@ -279,6 +279,7 @@ impl CallbackTrait for GameEguiCallback {
         &self,
         _device: &Device,
         _queue: &Queue,
+        _screen_descriptor: &ScreenDescriptor,
         _egui_encoder: &mut CommandEncoder,
         callback_resources: &mut CallbackResources,
     ) -> Vec<CommandBuffer> {
@@ -343,7 +344,7 @@ impl CallbackTrait for GameEguiCallback {
         callback_resources: &'a CallbackResources,
     ) {
         if let Some(draws) =
-            callback_resources.get::<HashMap<Id, Vec<(DrawIndexedIndirect, u32)>>>()
+            callback_resources.get::<HashMap<Id, Vec<(DrawIndexedIndirectArgs, u32)>>>()
         {
             let viewport = info.viewport_in_pixels();
             let gui_resources = callback_resources.get::<GuiResources>().unwrap();
@@ -366,9 +367,9 @@ impl CallbackTrait for GameEguiCallback {
 
             for (draw, ..) in draws[&self.model].iter().filter(|v| v.1 == self.index) {
                 render_pass.draw_indexed(
-                    draw.base_index..(draw.base_index + draw.vertex_count),
-                    draw.vertex_offset,
-                    draw.base_instance..(draw.base_instance + draw.instance_count),
+                    draw.first_index..(draw.first_index + draw.index_count),
+                    draw.base_vertex,
+                    draw.first_instance..(draw.first_instance + draw.instance_count),
                 );
             }
         }
