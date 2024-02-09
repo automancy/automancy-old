@@ -3,7 +3,7 @@
     function: Some("machine"),
     model: "basic_still",
     data: ({
-        "category": Id("basic"),
+        "category": Id("basic_processor"),
         "scripts": VecId([
             "coal_to_fire",
             "coal_to_chaos",
@@ -12,6 +12,5 @@
             "sand_to_air",
             "mud_to_water",
         ]),
-        "default_tile": Bool(true),
     }),
 )

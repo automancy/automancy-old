@@ -67,7 +67,7 @@ pub struct InstanceData {
 impl Default for InstanceData {
     fn default() -> Self {
         Self {
-            color_offset: [0.0, 0.0, 0.0, 0.0],
+            color_offset: Default::default(),
             alpha: 1.0,
             light_pos: vec4(0.0, 0.0, 0.0, 0.0),
             model_matrix: Matrix4::IDENTITY,

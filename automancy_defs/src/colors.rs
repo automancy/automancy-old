@@ -52,3 +52,4 @@ pub const LIGHT_GRAY: Rgba = hex_color!("#b6b6b6");
 pub const GRAY: Rgba = hex_color!("#747474");
 pub const DARK_GRAY: Rgba = hex_color!("#474747");
 pub const BLACK: Rgba = hex_color!("#000000");
+pub const INACTIVE: Rgba = hex_color!("#9a9a9a70");

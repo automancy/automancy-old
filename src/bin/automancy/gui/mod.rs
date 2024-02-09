@@ -12,18 +12,16 @@ use lazy_static::lazy_static;
 use wgpu::util::DrawIndexedIndirectArgs;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
+use crate::renderer::try_add_animation;
 use automancy::gpu;
 use automancy::gpu::{AnimationMap, GlobalBuffers, GuiResources};
 use automancy_defs::glam::vec3;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
-use automancy_defs::math::Matrix4;
+use automancy_defs::math::{Float, Matrix4};
 use automancy_defs::rendering::InstanceData;
 use automancy_defs::{bytemuck, colors};
 use automancy_resources::ResourceManager;
-
-use crate::gui::item::SMALL_ITEM_ICON_SIZE;
-use crate::renderer::try_add_animation;
 
 #[cfg(debug_assertions)]
 pub mod debug;
@@ -36,6 +34,10 @@ pub mod player;
 pub mod popup;
 pub mod tile_config;
 pub mod tile_selection;
+
+pub const SMALL_ICON_SIZE: Float = 24.0;
+pub const MEDIUM_ICON_SIZE: Float = 48.0;
+pub const LARGE_ICON_SIZE: Float = 96.0;
 
 pub struct GuiState {
     pub screen: Screen,
@@ -215,7 +217,7 @@ impl TextFieldState {
 
             for id in ids {
                 ui.horizontal(|ui| {
-                    ui.style_mut().spacing.interact_size.y = SMALL_ITEM_ICON_SIZE;
+                    ui.style_mut().spacing.interact_size.y = SMALL_ICON_SIZE;
 
                     ui.radio_value(
                         new_id,

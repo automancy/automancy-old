@@ -3,19 +3,21 @@ use std::f64::consts::FRAC_PI_4;
 use egui::epaint::Shadow;
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TopBottomPanel, Ui,
+    vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TextBuffer,
+    TopBottomPanel, Ui,
 };
 use futures::channel::mpsc;
 
 use automancy_defs::glam::{dvec3, vec3};
 use automancy_defs::id::Id;
-use automancy_defs::math;
 use automancy_defs::math::{z_far, z_near, DMatrix4, Float, Matrix4};
 use automancy_defs::rendering::InstanceData;
+use automancy_defs::{colors, math};
 use automancy_resources::data::{Data, DataMap};
+use automancy_resources::format;
 
 use crate::event::EventLoopStorage;
-use crate::gui::{default_frame, GameEguiCallback};
+use crate::gui::{default_frame, GameEguiCallback, LARGE_ICON_SIZE, MEDIUM_ICON_SIZE};
 use crate::setup::GameSetup;
 
 fn tile_hover_z_angle(ui: &Ui, response: &Response) -> Float {
@@ -28,12 +30,28 @@ fn tile_hover_z_angle(ui: &Ui, response: &Response) -> Float {
     }
 }
 
+fn has_category_item(setup: &GameSetup, id: Id, game_data: &mut DataMap) -> bool {
+    let category = &setup.resource_man.registry.categories[&id];
+
+    if let Some(item) = category.item {
+        if let Some(Data::Inventory(inventory)) =
+            game_data.get_mut(&setup.resource_man.registry.data_ids.player_inventory)
+        {
+            inventory.get(item) > 0
+        } else {
+            false
+        }
+    } else {
+        true
+    }
+}
+
 /// Draws the tile selection.
 fn draw_tile_selection(
     setup: &GameSetup,
     ui: &mut Ui,
     mut selection_send: mpsc::Sender<Id>,
-    game_data: &DataMap,
+    game_data: &mut DataMap,
     current_category: Option<Id>,
 ) {
     let size = ui.available_height();
@@ -41,41 +59,42 @@ fn draw_tile_selection(
         * math::view(dvec3(0.0, 0.0, 2.75));
     let projection = projection.as_mat4();
 
-    for id in setup
-        .resource_man
-        .ordered_tiles
-        .iter()
-        .filter(|id| {
-            if let Some(Data::Id(category)) = setup.resource_man.registry.tiles[*id]
-                .data
-                .get(&setup.resource_man.registry.data_ids.category)
-            {
-                return Some(*category) == current_category;
-            }
+    let has_item = if let Some(category) = current_category {
+        has_category_item(setup, category, game_data)
+    } else {
+        true
+    };
 
-            true
-        })
-        .filter(|id| {
-            if let Some(Data::Bool(default_tile)) = setup.resource_man.registry.tiles[*id]
-                .data
-                .get(&setup.resource_man.registry.data_ids.default_tile)
-            {
-                if *default_tile {
-                    return true;
-                }
-            }
+    for id in setup.resource_man.ordered_tiles.iter().filter(|id| {
+        if let Some(Data::Id(category)) = setup.resource_man.registry.tiles[*id]
+            .data
+            .get(&setup.resource_man.registry.data_ids.category)
+        {
+            return Some(*category) == current_category;
+        }
 
-            if let Some(research) = setup.resource_man.get_research_by_unlock(**id) {
+        true
+    }) {
+        let is_default_tile = match setup.resource_man.registry.tiles[id]
+            .data
+            .get(&setup.resource_man.registry.data_ids.default_tile)
+        {
+            Some(Data::Bool(v)) => *v,
+            _ => false,
+        };
+
+        if !is_default_tile {
+            if let Some(research) = setup.resource_man.get_research_by_unlock(*id) {
                 if let Some(Data::SetId(unlocked)) =
                     game_data.get(&setup.resource_man.registry.data_ids.unlocked_researches)
                 {
-                    return unlocked.contains(&research.id);
+                    if !unlocked.contains(&research.id) {
+                        continue;
+                    }
                 }
             }
+        }
 
-            false
-        })
-    {
         let tile = setup.resource_man.registry.tiles.get(id).unwrap();
         let model = setup.resource_man.get_model(tile.model);
 
@@ -86,11 +105,39 @@ fn draw_tile_selection(
             .on_hover_text(setup.resource_man.tile_name(id))
             .on_hover_cursor(CursorIcon::Grab);
 
+        let response = if !has_item {
+            if let Some(item) =
+                current_category.and_then(|id| setup.resource_man.registry.categories[&id].item)
+            {
+                response
+                    .on_hover_text(format(
+                        setup.resource_man.translates.gui[&setup
+                            .resource_man
+                            .registry
+                            .gui_ids
+                            .lbl_cannot_place_missing_item]
+                            .as_str(),
+                        &[setup.resource_man.item_name(&item)],
+                    ))
+                    .on_hover_cursor(CursorIcon::NotAllowed)
+            } else {
+                response
+            }
+        } else {
+            response
+        };
+
         if response.clicked() {
             selection_send.try_send(*id).unwrap();
         }
 
         let rotate = Matrix4::from_rotation_x(tile_hover_z_angle(ui, &response));
+
+        let color_offset = if is_default_tile || has_item {
+            Default::default()
+        } else {
+            colors::INACTIVE.to_array()
+        };
 
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
@@ -98,7 +145,8 @@ fn draw_tile_selection(
                 InstanceData::default()
                     .with_model_matrix(rotate)
                     .with_projection(projection)
-                    .with_light_pos(vec3(0.0, 4.0, 14.0), None),
+                    .with_light_pos(vec3(0.0, 4.0, 14.0), None)
+                    .with_color_offset(color_offset),
                 model,
                 rect,
                 ui.ctx().screen_rect(),
@@ -113,7 +161,7 @@ pub fn tile_selections(
     loop_store: &mut EventLoopStorage,
     context: &Context,
     selection_send: mpsc::Sender<Id>,
-    game_data: &DataMap,
+    game_data: &mut DataMap,
 ) {
     let projection = DMatrix4::perspective_lh(FRAC_PI_4, 1.0, z_near(), z_far())
         * math::view(dvec3(0.0, 0.0, 2.75));
@@ -133,7 +181,7 @@ pub fn tile_selections(
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.set_height(90.0);
+                        ui.set_height(LARGE_ICON_SIZE);
 
                         draw_tile_selection(
                             setup,
@@ -165,12 +213,13 @@ pub fn tile_selections(
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.set_height(60.0);
+                        ui.set_height(MEDIUM_ICON_SIZE);
 
                         for id in &setup.resource_man.ordered_categories {
                             let category = &setup.resource_man.registry.categories[id];
                             let model = setup.resource_man.get_model(category.icon);
                             let size = ui.available_height();
+                            let has_item = has_category_item(setup, *id, game_data);
 
                             let (ui_id, rect) = ui.allocate_space(vec2(size, size));
 
@@ -185,13 +234,20 @@ pub fn tile_selections(
                             let rotate =
                                 Matrix4::from_rotation_x(tile_hover_z_angle(ui, &response));
 
+                            let color_offset = if has_item {
+                                Default::default()
+                            } else {
+                                colors::INACTIVE.to_array()
+                            };
+
                             ui.painter().add(egui_wgpu::Callback::new_paint_callback(
                                 rect,
                                 GameEguiCallback::new(
                                     InstanceData::default()
                                         .with_model_matrix(rotate)
                                         .with_projection(projection)
-                                        .with_light_pos(vec3(0.0, 4.0, 14.0), None),
+                                        .with_light_pos(vec3(0.0, 4.0, 14.0), None)
+                                        .with_color_offset(color_offset),
                                     model,
                                     rect,
                                     ui.ctx().screen_rect(),

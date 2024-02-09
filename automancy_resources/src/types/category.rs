@@ -14,6 +14,7 @@ pub struct CategoryRaw {
     pub id: IdRaw,
     pub ord: i64,
     pub icon: IdRaw,
+    pub item: Option<IdRaw>,
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,7 @@ pub struct Category {
     pub id: Id,
     pub ord: i64,
     pub icon: Id,
+    pub item: Option<Id>,
 }
 
 impl ResourceManager {
@@ -32,8 +34,14 @@ impl ResourceManager {
         let id = category.id.to_id(&mut self.interner);
         let ord = category.ord;
         let icon = category.icon.to_id(&mut self.interner);
+        let item = category.item.map(|v| v.to_id(&mut self.interner));
 
-        let tag = Category { id, ord, icon };
+        let tag = Category {
+            id,
+            ord,
+            icon,
+            item,
+        };
 
         self.registry.categories.insert(id, tag);
 

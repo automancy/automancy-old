@@ -289,6 +289,34 @@ impl Actor for Game {
                             }
                         }
 
+                        if let Some(Data::Id(category)) = self.resource_man.registry.tiles[&id]
+                            .data
+                            .get(&self.resource_man.registry.data_ids.category)
+                        {
+                            if let Some(item) = self
+                                .resource_man
+                                .registry
+                                .categories
+                                .get(category)
+                                .and_then(|v| v.item)
+                            {
+                                if let Data::Inventory(inventory) = state
+                                    .map
+                                    .data
+                                    .entry(self.resource_man.registry.data_ids.player_inventory)
+                                    .or_insert_with(|| Data::Inventory(Default::default()))
+                                {
+                                    if inventory.get(item) < 1 {
+                                        if let Some(reply) = reply {
+                                            reply.send(PlaceTileResponse::Ignored).unwrap();
+                                        }
+
+                                        return Ok(());
+                                    }
+                                }
+                            }
+                        }
+
                         let old_tile = if id == self.resource_man.registry.none {
                             if !state.map.tiles.contains_key(&coord) {
                                 if let Some(reply) = reply {
@@ -302,7 +330,7 @@ impl Actor for Game {
                                 reply.send(PlaceTileResponse::Removed).unwrap();
                             }
 
-                            remove_tile(state, coord).await
+                            remove_tile(&self.resource_man, state, coord).await
                         } else {
                             if let Some(reply) = reply {
                                 reply.send(PlaceTileResponse::Placed).unwrap();
@@ -420,7 +448,7 @@ impl Actor for Game {
                         let mut removed = Vec::new();
 
                         for coord in tiles {
-                            if let Some(old) = remove_tile(state, coord).await {
+                            if let Some(old) = remove_tile(&self.resource_man, state, coord).await {
                                 removed.push((coord, old));
                             }
                         }
@@ -500,8 +528,38 @@ pub async fn new_tile(
 }
 
 /// Stops a tile and removes it from the game
-async fn remove_tile(state: &mut GameState, coord: TileCoord) -> Option<(Id, Option<DataMap>)> {
-    let data = if let Some(tile_entity) = state.tile_entities.remove(&coord) {
+async fn remove_tile(
+    resource_man: &ResourceManager,
+    state: &mut GameState,
+    coord: TileCoord,
+) -> Option<(Id, Option<DataMap>)> {
+    if let Some((tile, tile_entity)) = state
+        .map
+        .tiles
+        .remove(&coord)
+        .zip(state.tile_entities.remove(&coord))
+    {
+        if let Some(Data::Id(category)) = resource_man.registry.tiles[&tile]
+            .data
+            .get(&resource_man.registry.data_ids.category)
+        {
+            if let Some(item) = resource_man
+                .registry
+                .categories
+                .get(category)
+                .and_then(|v| v.item)
+            {
+                if let Data::Inventory(inventory) = state
+                    .map
+                    .data
+                    .entry(resource_man.registry.data_ids.player_inventory)
+                    .or_insert_with(|| Data::Inventory(Default::default()))
+                {
+                    inventory.add(item, 1);
+                }
+            }
+        }
+
         let data = tile_entity
             .call(TileEntityMsg::TakeData, None)
             .await
@@ -510,12 +568,10 @@ async fn remove_tile(state: &mut GameState, coord: TileCoord) -> Option<(Id, Opt
 
         tile_entity.stop(Some("Removed from game".to_string()));
 
-        data
+        Some((tile, data))
     } else {
         None
-    };
-
-    state.map.tiles.remove(&coord).map(|id| (id, data))
+    }
 }
 
 /// Makes a new tile and add it into both the map and the game
@@ -527,7 +583,32 @@ async fn insert_new_tile(
     id: Id,
     data: Option<DataMap>,
 ) -> Option<(Id, Option<DataMap>)> {
-    let old = remove_tile(state, coord).await;
+    let old = remove_tile(&resource_man, state, coord).await;
+
+    if let Some(Data::Id(category)) = resource_man.registry.tiles[&id]
+        .data
+        .get(&resource_man.registry.data_ids.category)
+    {
+        if let Some(item) = resource_man
+            .registry
+            .categories
+            .get(category)
+            .and_then(|v| v.item)
+        {
+            if let Data::Inventory(inventory) = state
+                .map
+                .data
+                .entry(resource_man.registry.data_ids.player_inventory)
+                .or_insert_with(|| Data::Inventory(Default::default()))
+            {
+                if inventory.get(item) < 1 {
+                    return None;
+                }
+
+                inventory.take(item, 1);
+            }
+        }
+    }
 
     let tile_entity = new_tile(resource_man, game, coord, id).await;
 

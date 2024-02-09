@@ -7,8 +7,8 @@ use automancy_defs::colors;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::Data;
 
-use crate::gui::default_frame;
-use crate::gui::item::{draw_item, SMALL_ITEM_ICON_SIZE};
+use crate::gui::item::draw_item;
+use crate::gui::{default_frame, SMALL_ICON_SIZE};
 use crate::setup::GameSetup;
 
 /// Draws the info GUI.
@@ -61,11 +61,10 @@ pub fn info(setup: &GameSetup, context: &Context) {
                         item: *item,
                         amount: *amount,
                     },
-                    SMALL_ITEM_ICON_SIZE,
+                    SMALL_ICON_SIZE,
                     true,
                 );
             }
         }
-        //ui.label(format!("State: {}", ask(sys, &game, )))
     });
 }

@@ -2,6 +2,8 @@
     none: "<none>",
     unnamed: "<unnamed, report to the devs>",
     items: {
+        "basic_assembly": "Basic Assembly",
+        "network_assembly": "Networking Assembly",
         "philosophers_stone": "Philosopher's Stone",
         "earth": "Earth",
         "silver": "Silver",
@@ -55,9 +57,11 @@
         "coal_to_fire": "Coal to Fire",
     },
     categories: {
-        "basic": "Basic Tiles",
+        "basic_producer": "Basic Producer Tiles",
+        "basic_processor": "Basic Processor Tiles",
         "transfer": "Trasnfer Tiles",
         "network": "Network Tiles",
+        "utility": "Utility Tiles",
     },
     gui: {
         "info": "Info",
@@ -87,6 +91,7 @@
         "lbl_delete_map_confirm": "This will permanently delete this map. Are you sure?",
         "lbl_pick_another_name": "Please pick another name.",
         "lbl_link_destination": "(Click on me to start Linking, and then right click a Tile to pick Destination)",
+        "lbl_cannot_place_missing_item": "You need a '{}' item\nin order to place this tile",
 
         "btn_fedi": "Fedi",
         "btn_link_network": "Link Network!",

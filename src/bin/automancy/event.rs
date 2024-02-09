@@ -181,7 +181,7 @@ fn render(
                             loop_store,
                             &gui.context,
                             selection_send,
-                            &game_data,
+                            &mut game_data,
                         );
 
                         if let Ok(Some(id)) = selection_recv.try_next() {
@@ -544,7 +544,7 @@ pub fn on_event(
 
         if setup.input_handler.control_held && loop_store.gui_state.screen == Screen::Ingame {
             if let Some(start) = loop_store.initial_cursor_position {
-                if setup.input_handler.tertiary_pressed {
+                if setup.input_handler.alternate_pressed {
                     let direction = setup.camera.pointing_at - start;
 
                     setup.game.send_message(GameMsg::MoveTiles(
@@ -565,7 +565,7 @@ pub fn on_event(
                     loop_store.initial_cursor_position = None;
                     setup.audio_man.play(resource_man.audio["click"].clone())?; // TODO click2
                 }
-            } else if setup.input_handler.tertiary_pressed {
+            } else if setup.input_handler.alternate_pressed {
                 loop_store.initial_cursor_position = Some(setup.camera.pointing_at);
                 setup.audio_man.play(resource_man.audio["click"].clone())?;
             }

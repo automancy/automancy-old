@@ -12,8 +12,8 @@ use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::{Data, DataMap};
 
 use crate::event::EventLoopStorage;
-use crate::gui::item::{draw_item, MEDIUM_ITEM_ICON_SIZE};
-use crate::gui::{default_frame, GameEguiCallback, Screen};
+use crate::gui::item::draw_item;
+use crate::gui::{default_frame, GameEguiCallback, Screen, MEDIUM_ICON_SIZE};
 use crate::setup::GameSetup;
 
 fn take_item_animation(
@@ -106,7 +106,7 @@ pub fn player(
                             item: *item,
                             amount: *amount,
                         },
-                        MEDIUM_ITEM_ICON_SIZE,
+                        MEDIUM_ICON_SIZE,
                         true,
                     );
 

@@ -18,8 +18,8 @@ use automancy_resources::ResourceManager;
 
 use crate::event::EventLoopStorage;
 use crate::gui;
-use crate::gui::item::{draw_item, MEDIUM_ITEM_ICON_SIZE, SMALL_ITEM_ICON_SIZE};
-use crate::gui::{info_hover, TextField};
+use crate::gui::item::draw_item;
+use crate::gui::{info_hover, TextField, MEDIUM_ICON_SIZE, SMALL_ICON_SIZE};
 use crate::setup::GameSetup;
 
 /// Draws the direction selector.
@@ -200,7 +200,7 @@ fn takeable_item(
             &setup.resource_man,
             None,
             ItemStack { item, amount },
-            MEDIUM_ITEM_ICON_SIZE,
+            MEDIUM_ICON_SIZE,
             true,
         );
 
@@ -263,14 +263,7 @@ fn config_item(
         .and_then(|id| setup.resource_man.registry.items.get(&id).cloned())
         .map(|item| ItemStack { item, amount: 0 })
     {
-        draw_item(
-            ui,
-            &setup.resource_man,
-            None,
-            stack,
-            SMALL_ITEM_ICON_SIZE,
-            true,
-        );
+        draw_item(ui, &setup.resource_man, None, stack, SMALL_ICON_SIZE, true);
     }
     loop_store.gui_state.text_field.searchable_id(
         ui,
@@ -290,7 +283,7 @@ fn config_item(
                     item: resource_man.registry.items[id],
                     amount: 0,
                 },
-                SMALL_ITEM_ICON_SIZE,
+                SMALL_ICON_SIZE,
                 false,
             );
         },
@@ -328,7 +321,7 @@ fn draw_script_info(ui: &mut Ui, setup: &GameSetup, script: Option<Id>) {
                     &setup.resource_man,
                     Some(" + "),
                     *input,
-                    SMALL_ITEM_ICON_SIZE,
+                    SMALL_ICON_SIZE,
                     true,
                 );
             }
@@ -340,7 +333,7 @@ fn draw_script_info(ui: &mut Ui, setup: &GameSetup, script: Option<Id>) {
                 &setup.resource_man,
                 Some("=> "),
                 *output,
-                SMALL_ITEM_ICON_SIZE,
+                SMALL_ICON_SIZE,
                 true,
             );
         }
@@ -395,7 +388,7 @@ fn config_script(
                 .map(|script| script.instructions.outputs.as_slice())
             {
                 for stack in stacks {
-                    draw_item(ui, resource_man, None, *stack, SMALL_ITEM_ICON_SIZE, false);
+                    draw_item(ui, resource_man, None, *stack, SMALL_ICON_SIZE, false);
                 }
             }
         },

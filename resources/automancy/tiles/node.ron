@@ -5,6 +5,5 @@
     data: ({
         "category": Id("network"),
         "linked": Bool(true),
-        "default_tile": Bool(true),
     }),
 )

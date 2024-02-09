@@ -94,6 +94,7 @@ pub struct GuiIds {
     pub lbl_maps_loaded: Id,
     pub lbl_pick_another_name: Id,
     pub lbl_delete_map_confirm: Id,
+    pub lbl_cannot_place_missing_item: Id,
 
     pub btn_confirm: Id,
     pub btn_exit: Id,

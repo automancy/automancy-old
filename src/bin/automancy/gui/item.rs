@@ -9,10 +9,6 @@ use automancy_resources::ResourceManager;
 
 use crate::gui::GameEguiCallback;
 
-pub const SMALL_ITEM_ICON_SIZE: Float = 24.0;
-pub const MEDIUM_ITEM_ICON_SIZE: Float = 48.0;
-pub const LARGE_ITEM_ICON_SIZE: Float = 96.0;
-
 /// Draws an Item's icon.
 pub fn draw_item(
     ui: &mut Ui,
