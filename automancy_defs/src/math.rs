@@ -53,8 +53,13 @@ pub fn z_far() -> Double {
     10000.0
 }
 
-pub fn projection(aspect: Double, pi: Double) -> DMatrix4 {
-    DMatrix4::perspective_lh(pi / 2.0, aspect, z_near(), z_far())
+#[inline]
+pub fn fov() -> Double {
+    PI / 2.0
+}
+
+pub fn projection(aspect: Double) -> DMatrix4 {
+    DMatrix4::perspective_lh(fov(), aspect, z_near(), z_far())
 }
 
 pub fn camera_angle(z: Double) -> Double {
@@ -70,14 +75,18 @@ pub fn camera_angle(z: Double) -> Double {
     }
 }
 
+pub fn angle(z: Double) -> DMatrix4 {
+    DMatrix4::from_rotation_x(camera_angle(z))
+}
+
 pub fn view(pos: DVec3) -> DMatrix4 {
     DMatrix4::look_to_rh(pos, dvec3(0.0, 0.0, 1.0), dvec3(0.0, 1.0, 0.0))
 }
 
-pub fn matrix(pos: DVec3, aspect: Double, pi: Double) -> DMatrix4 {
-    let projection = projection(aspect, pi);
+pub fn matrix(pos: DVec3, aspect: Double) -> DMatrix4 {
+    let projection = projection(aspect);
     let view = view(pos);
-    let angle = DMatrix4::from_rotation_x(camera_angle(pos.z));
+    let angle = angle(pos.z);
 
     projection * angle * view
 }
@@ -128,15 +137,17 @@ pub fn screen_to_world((width, height): (Double, Double), pos: DVec2, camera_pos
 #[inline]
 pub fn normalized_to_world(
     (width, height): (Double, Double),
-    pos: DVec2,
+    normalized: DVec2,
     camera_pos: DVec3,
 ) -> DVec3 {
     let aspect = width / height;
 
+    let angle = angle(camera_pos.z).inverse();
     let view = view(dvec3(0.0, 0.0, camera_pos.z)).inverse();
-    let projection = projection(aspect, PI).inverse();
+    let projection = projection(aspect).inverse();
 
-    let pos = dvec4(pos.x, pos.y, camera_pos.z, camera_pos.z);
+    let pos = dvec4(normalized.x, normalized.y, camera_pos.z, camera_pos.z);
+    let pos = angle * pos;
     let pos = view * pos;
     let pos = projection * pos;
     let pos = pos.truncate() * pos.z;
@@ -145,10 +156,12 @@ pub fn normalized_to_world(
 }
 
 /// Gets the culling range from the camera's position
-pub fn get_culling_range((width, height): (Double, Double), camera_pos: DVec3) -> HexBounds {
+pub fn get_culling_range(size: (Double, Double), camera_pos: DVec3) -> HexBounds {
+    let v = normalized_to_world(size, dvec2(1.0, 1.0), camera_pos).abs();
+
     HexBounds::new(
         HEX_GRID_LAYOUT.world_pos_to_hex(vec2(camera_pos.x as Float, camera_pos.y as Float)),
-        ((width / height) * camera_pos.z.round()) as u32 + 8,
+        v.x.max(v.y) as u32,
     )
 }
 #[inline]

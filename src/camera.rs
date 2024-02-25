@@ -1,4 +1,3 @@
-use std::f64::consts::PI;
 use std::ops::Mul;
 
 use egui::NumExt;
@@ -41,7 +40,7 @@ pub fn fit_pos(DVec3 { x, y, z }: DVec3) -> DVec3 {
 impl Camera {
     pub fn new((width, height): (Double, Double)) -> Self {
         let pos = dvec3(0.0, 0.0, 2.0);
-        let matrix = matrix(fit_pos(pos), width / height, PI);
+        let matrix = matrix(fit_pos(pos), width / height);
 
         Self {
             pos,
@@ -111,7 +110,7 @@ impl Camera {
             self.scroll_vel -= self.scroll_vel * elapsed.mul(15.0).at_most(0.9);
         }
 
-        self.matrix = matrix(self.get_pos(), width / height, PI);
+        self.matrix = matrix(self.get_pos(), width / height);
         self.culling_range = math::get_culling_range((width, height), self.get_pos());
     }
 
