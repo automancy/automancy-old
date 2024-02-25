@@ -5,7 +5,7 @@ use egui::NumExt;
 use egui_wgpu::wgpu::{
     vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode,
 };
-use glam::{vec3, vec4};
+use glam::{vec3, vec4, Mat3};
 use gltf::animation::Interpolation;
 use gltf::scene::Transform;
 
@@ -204,14 +204,20 @@ impl RawInstanceData {
             FIX_COORD
         };
         let model_matrix = instance.model_matrix;
-        let invert_transpose = instance.model_matrix.inverse().transpose();
+        let inverse_transpose = Mat3::from_cols(
+            instance.model_matrix.x_axis.truncate(),
+            instance.model_matrix.y_axis.truncate(),
+            instance.model_matrix.z_axis.truncate(),
+        )
+        .inverse()
+        .transpose();
 
         let matrix_data = MatrixData {
             model_matrix: model_matrix.to_cols_array_2d(),
             normal_matrix: [
-                invert_transpose.x_axis.to_array(),
-                invert_transpose.y_axis.to_array(),
-                invert_transpose.z_axis.to_array(),
+                inverse_transpose.x_axis.extend(0.0).to_array(),
+                inverse_transpose.y_axis.extend(0.0).to_array(),
+                inverse_transpose.z_axis.extend(0.0).to_array(),
             ],
             world_matrix: world_matrix.to_cols_array_2d(),
         };
