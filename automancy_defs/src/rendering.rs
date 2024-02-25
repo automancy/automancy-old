@@ -177,7 +177,7 @@ impl InstanceData {
 pub struct MatrixData {
     model_matrix: RawMat4,
     world_matrix: RawMat4,
-    normal_matrix: [[Float; 4]; 3],
+    normal_matrix: [[Float; 4]; 3], // memory alignment issue, padded to 16 bytes
 }
 
 #[repr(C)]
