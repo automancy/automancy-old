@@ -157,7 +157,7 @@ pub fn normalized_to_world(
 
 /// Gets the culling range from the camera's position
 pub fn get_culling_range(size: (Double, Double), camera_pos: DVec3) -> HexBounds {
-    let v = normalized_to_world(size, dvec2(1.0, 1.0), camera_pos).abs();
+    let v = normalized_to_world(size, dvec2(1.0, 1.0), dvec3(0.0, 0.0, camera_pos.z)).abs();
 
     HexBounds::new(
         HEX_GRID_LAYOUT.world_pos_to_hex(vec2(camera_pos.x as Float, camera_pos.y as Float)),
