@@ -3,8 +3,7 @@ use std::f64::consts::FRAC_PI_4;
 use egui::epaint::Shadow;
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TextBuffer,
-    TopBottomPanel, Ui,
+    vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TopBottomPanel, Ui,
 };
 use futures::channel::mpsc;
 
@@ -105,7 +104,7 @@ fn draw_tile_selection(
             .on_hover_text(setup.resource_man.tile_name(id))
             .on_hover_cursor(CursorIcon::Grab);
 
-        let response = if !has_item {
+        let response = if !(is_default_tile || has_item) {
             if let Some(item) =
                 current_category.and_then(|id| setup.resource_man.registry.categories[&id].item)
             {
@@ -144,7 +143,7 @@ fn draw_tile_selection(
             GameEguiCallback::new(
                 InstanceData::default()
                     .with_model_matrix(rotate)
-                    .with_projection(projection)
+                    .with_world_matrix(projection)
                     .with_light_pos(vec3(0.0, 4.0, 14.0), None)
                     .with_color_offset(color_offset),
                 model,
@@ -219,7 +218,6 @@ pub fn tile_selections(
                             let category = &setup.resource_man.registry.categories[id];
                             let model = setup.resource_man.get_model(category.icon);
                             let size = ui.available_height();
-                            let has_item = has_category_item(setup, *id, game_data);
 
                             let (ui_id, rect) = ui.allocate_space(vec2(size, size));
 
@@ -234,20 +232,13 @@ pub fn tile_selections(
                             let rotate =
                                 Matrix4::from_rotation_x(tile_hover_z_angle(ui, &response));
 
-                            let color_offset = if has_item {
-                                Default::default()
-                            } else {
-                                colors::INACTIVE.to_array()
-                            };
-
                             ui.painter().add(egui_wgpu::Callback::new_paint_callback(
                                 rect,
                                 GameEguiCallback::new(
                                     InstanceData::default()
                                         .with_model_matrix(rotate)
-                                        .with_projection(projection)
-                                        .with_light_pos(vec3(0.0, 4.0, 14.0), None)
-                                        .with_color_offset(color_offset),
+                                        .with_world_matrix(projection)
+                                        .with_light_pos(vec3(0.0, 4.0, 14.0), None),
                                     model,
                                     rect,
                                     ui.ctx().screen_rect(),

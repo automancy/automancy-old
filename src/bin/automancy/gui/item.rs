@@ -48,7 +48,8 @@ pub fn draw_item(
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             GameEguiCallback::new(
-                InstanceData::default().with_projection(math::view(dvec3(0.0, 0.0, 1.0)).as_mat4()),
+                InstanceData::default()
+                    .with_world_matrix(math::view(dvec3(0.0, 0.0, 1.0)).as_mat4()),
                 resource_man.get_item_model(stack.item),
                 rect,
                 ui.ctx().screen_rect(),

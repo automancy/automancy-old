@@ -267,8 +267,8 @@ impl GameEguiCallback {
 
         let result = Self {
             instance: instance
-                .add_projection_left(Matrix4::from_translation(vec3(dx, dy, 0.0)))
-                .add_projection_right(Matrix4::from_scale(vec3(sx, sy, 1.0))),
+                .add_world_matrix_left(Matrix4::from_translation(vec3(dx, dy, 0.0)))
+                .add_world_matrix_right(Matrix4::from_scale(vec3(sx, sy, 1.0))),
             model,
             index: *counter,
         };
@@ -321,7 +321,7 @@ impl CallbackTrait for GameEguiCallback {
 
             let animation_map = callback_resources.get::<AnimationMap>().unwrap();
 
-            let (instances, draws, _count) =
+            let (instances, draws, _count, matrix_data) =
                 gpu::indirect_instance(&resource_man, &instances, false, animation_map);
 
             {
@@ -332,6 +332,12 @@ impl CallbackTrait for GameEguiCallback {
                     queue,
                     &mut gui_resources.instance_buffer,
                     bytemuck::cast_slice(instances.as_slice()),
+                );
+
+                queue.write_buffer(
+                    &gui_resources.matrix_data_buffer,
+                    0,
+                    bytemuck::cast_slice(matrix_data.as_slice()),
                 );
             }
 

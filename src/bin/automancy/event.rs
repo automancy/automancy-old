@@ -122,11 +122,11 @@ fn render(
 
     setup.camera.update_pointing_at(
         setup.input_handler.main_pos,
-        window::window_size_double(&renderer.gpu.window),
+        window::window_size_double(renderer.gpu.window),
     );
 
     setup.camera.update_pos(
-        window::window_size_double(&renderer.gpu.window),
+        window::window_size_double(renderer.gpu.window),
         loop_store.elapsed.as_secs_f64(),
     );
 
@@ -145,7 +145,7 @@ fn render(
 
     {
         gui.context
-            .begin_frame(gui.state.take_egui_input(&renderer.gpu.window));
+            .begin_frame(gui.state.take_egui_input(renderer.gpu.window));
 
         #[cfg(debug_assertions)]
         if setup.input_handler.key_active(KeyActions::Debug) {
@@ -195,7 +195,7 @@ fn render(
                         }
 
                         let cursor_pos = math::screen_to_world(
-                            window::window_size_double(&renderer.gpu.window),
+                            window::window_size_double(renderer.gpu.window),
                             setup.input_handler.main_pos,
                             setup.camera.get_pos(),
                         );
@@ -211,8 +211,15 @@ fn render(
                                     GameEguiCallback::new(
                                         InstanceData::default()
                                             .with_alpha(0.6)
-                                            .with_light_pos(camera_pos_float, None)
-                                            .with_projection(setup.camera.get_matrix().as_mat4())
+                                            .with_light_pos(
+                                                vec3(
+                                                    camera_pos_float.x,
+                                                    camera_pos_float.y,
+                                                    camera_pos_float.z,
+                                                ),
+                                                None,
+                                            )
+                                            .with_world_matrix(setup.camera.get_matrix().as_mat4())
                                             .with_model_matrix(Matrix4::from_translation(vec3(
                                                 cursor_pos.x as Float,
                                                 cursor_pos.y as Float,
@@ -231,6 +238,7 @@ fn render(
                                 InstanceData::default()
                                     .with_color_offset(colors::RED.to_array())
                                     .with_light_pos(camera_pos_float, None)
+                                    .with_world_matrix(setup.camera.get_matrix().as_mat4())
                                     .with_model_matrix(make_line(
                                         HEX_GRID_LAYOUT.hex_to_world_pos(*coord),
                                         cursor_pos.as_vec2(),
@@ -286,6 +294,7 @@ fn render(
                         InstanceData::default()
                             .with_color_offset(colors::LIGHT_BLUE.to_array())
                             .with_light_pos(camera_pos_float, None)
+                            .with_world_matrix(setup.camera.get_matrix().as_mat4())
                             .with_model_matrix(make_line(
                                 HEX_GRID_LAYOUT.hex_to_world_pos(*start),
                                 HEX_GRID_LAYOUT.hex_to_world_pos(*setup.camera.pointing_at),
@@ -418,7 +427,7 @@ pub fn on_event(
         Event::WindowEvent { event, window_id } if window_id == &renderer.gpu.window.id() => {
             if !gui
                 .state
-                .on_window_event(&renderer.gpu.window, event)
+                .on_window_event(renderer.gpu.window, event)
                 .consumed
             {
                 window_event = Some(event);
@@ -455,11 +464,11 @@ pub fn on_event(
         setup.input_handler.update(input::convert_input(
             window_event,
             device_event,
-            window::window_size_double(&renderer.gpu.window),
+            window::window_size_double(renderer.gpu.window),
             1.0, //TODO sensitivity option
         ));
 
-        let ignore_move = loop_store.selected_tile_id.is_some();
+        let ignore_move = false;
 
         setup.camera.handle_input(&setup.input_handler, ignore_move);
 

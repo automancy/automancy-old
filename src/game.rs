@@ -289,32 +289,26 @@ impl Actor for Game {
                             }
                         }
 
-                        if let Some(Data::Id(category)) = self.resource_man.registry.tiles[&id]
-                            .data
-                            .get(&self.resource_man.registry.data_ids.category)
-                        {
-                            if let Some(item) = self
-                                .resource_man
-                                .registry
-                                .categories
-                                .get(category)
-                                .and_then(|v| v.item)
-                            {
-                                if let Data::Inventory(inventory) = state
-                                    .map
-                                    .data
-                                    .entry(self.resource_man.registry.data_ids.player_inventory)
-                                    .or_insert_with(|| Data::Inventory(Default::default()))
-                                {
-                                    if inventory.get(item) < 1 {
-                                        if let Some(reply) = reply {
-                                            reply.send(PlaceTileResponse::Ignored).unwrap();
-                                        }
+                        let mut skip = false;
 
-                                        return Ok(());
-                                    }
+                        try_category(&self.resource_man, id, |item| {
+                            if let Data::Inventory(inventory) = state
+                                .map
+                                .data
+                                .entry(self.resource_man.registry.data_ids.player_inventory)
+                                .or_insert_with(|| Data::Inventory(Default::default()))
+                            {
+                                if inventory.get(item) < 1 {
+                                    skip = true
                                 }
                             }
+                        });
+
+                        if skip {
+                            if let Some(reply) = reply {
+                                reply.send(PlaceTileResponse::Ignored).unwrap();
+                            }
+                            return Ok(());
                         }
 
                         let old_tile = if id == self.resource_man.registry.none {
@@ -504,6 +498,29 @@ impl Actor for Game {
     }
 }
 
+pub fn try_category(resource_man: &ResourceManager, id: Id, category_item: impl FnOnce(Id)) {
+    if let Some(Data::Id(category)) = resource_man.registry.tiles[&id]
+        .data
+        .get(&resource_man.registry.data_ids.category)
+    {
+        if Data::Bool(false)
+            == *resource_man.registry.tiles[&id]
+                .data
+                .get(&resource_man.registry.data_ids.default_tile)
+                .unwrap_or(&Data::Bool(false))
+        {
+            if let Some(item) = resource_man
+                .registry
+                .categories
+                .get(category)
+                .and_then(|v| v.item)
+            {
+                category_item(item);
+            }
+        }
+    }
+}
+
 /// Creates a new tile of given type at the given position, and with an initial state.
 pub async fn new_tile(
     resource_man: Arc<ResourceManager>,
@@ -539,26 +556,16 @@ async fn remove_tile(
         .remove(&coord)
         .zip(state.tile_entities.remove(&coord))
     {
-        if let Some(Data::Id(category)) = resource_man.registry.tiles[&tile]
-            .data
-            .get(&resource_man.registry.data_ids.category)
-        {
-            if let Some(item) = resource_man
-                .registry
-                .categories
-                .get(category)
-                .and_then(|v| v.item)
+        try_category(resource_man, tile, |item| {
+            if let Data::Inventory(inventory) = state
+                .map
+                .data
+                .entry(resource_man.registry.data_ids.player_inventory)
+                .or_insert_with(|| Data::Inventory(Default::default()))
             {
-                if let Data::Inventory(inventory) = state
-                    .map
-                    .data
-                    .entry(resource_man.registry.data_ids.player_inventory)
-                    .or_insert_with(|| Data::Inventory(Default::default()))
-                {
-                    inventory.add(item, 1);
-                }
+                inventory.add(item, 1);
             }
-        }
+        });
 
         let data = tile_entity
             .call(TileEntityMsg::TakeData, None)
@@ -580,37 +587,33 @@ async fn insert_new_tile(
     game: ActorRef<GameMsg>,
     state: &mut GameState,
     coord: TileCoord,
-    id: Id,
+    tile: Id,
     data: Option<DataMap>,
 ) -> Option<(Id, Option<DataMap>)> {
     let old = remove_tile(&resource_man, state, coord).await;
 
-    if let Some(Data::Id(category)) = resource_man.registry.tiles[&id]
-        .data
-        .get(&resource_man.registry.data_ids.category)
-    {
-        if let Some(item) = resource_man
-            .registry
-            .categories
-            .get(category)
-            .and_then(|v| v.item)
-        {
-            if let Data::Inventory(inventory) = state
-                .map
-                .data
-                .entry(resource_man.registry.data_ids.player_inventory)
-                .or_insert_with(|| Data::Inventory(Default::default()))
-            {
-                if inventory.get(item) < 1 {
-                    return None;
-                }
+    let mut skip = false;
 
-                inventory.take(item, 1);
+    try_category(&resource_man, tile, |item| {
+        if let Data::Inventory(inventory) = state
+            .map
+            .data
+            .entry(resource_man.registry.data_ids.player_inventory)
+            .or_insert_with(|| Data::Inventory(Default::default()))
+        {
+            if inventory.get(item) < 1 {
+                skip = true;
             }
+
+            inventory.take(item, 1);
         }
+    });
+
+    if skip {
+        return None;
     }
 
-    let tile_entity = new_tile(resource_man, game, coord, id).await;
+    let tile_entity = new_tile(resource_man, game, coord, tile).await;
 
     if let Some(data) = data {
         tile_entity
@@ -619,7 +622,7 @@ async fn insert_new_tile(
     }
 
     state.tile_entities.insert(coord, tile_entity);
-    state.map.tiles.insert(coord, id);
+    state.map.tiles.insert(coord, tile);
 
     old
 }

@@ -9,7 +9,7 @@ use glam::{vec3, vec4};
 use gltf::animation::Interpolation;
 use gltf::scene::Transform;
 
-use crate::math::{direction_to_angle, Float, Matrix3, Matrix4, Vec2, Vec3, Vec4};
+use crate::math::{direction_to_angle, Float, Matrix4, Vec2, Vec3, Vec4};
 
 /// Produces a line shape.
 pub fn make_line(a: Vec2, b: Vec2) -> Matrix4 {
@@ -61,7 +61,7 @@ pub struct InstanceData {
     alpha: Float,
     light_pos: Vec4,
     model_matrix: Matrix4,
-    projection: Option<Matrix4>,
+    world_matrix: Option<Matrix4>,
 }
 
 impl Default for InstanceData {
@@ -71,15 +71,15 @@ impl Default for InstanceData {
             alpha: 1.0,
             light_pos: vec4(0.0, 0.0, 0.0, 0.0),
             model_matrix: Matrix4::IDENTITY,
-            projection: None,
+            world_matrix: None,
         }
     }
 }
 
 impl InstanceData {
     #[inline]
-    pub fn add_model_matrix(mut self, model_matrix: Matrix4) -> Self {
-        self.model_matrix *= model_matrix;
+    pub fn add_model_matrix(mut self, matrix: Matrix4) -> Self {
+        self.model_matrix *= matrix;
 
         self
     }
@@ -99,8 +99,8 @@ impl InstanceData {
     }
 
     #[inline]
-    pub fn with_model_matrix(mut self, model_matrix: Matrix4) -> Self {
-        self.model_matrix = model_matrix;
+    pub fn with_model_matrix(mut self, matrix: Matrix4) -> Self {
+        self.model_matrix = matrix;
 
         self
     }
@@ -139,38 +139,45 @@ impl InstanceData {
     }
 
     #[inline]
-    pub fn with_projection(mut self, projection: Matrix4) -> Self {
-        self.projection = Some(projection);
+    pub fn with_world_matrix(mut self, matrix: Matrix4) -> Self {
+        self.world_matrix = Some(matrix);
 
         self
     }
 
     #[inline]
-    pub fn get_projection(self) -> Option<Matrix4> {
-        self.projection
+    pub fn get_world_matrix(self) -> Option<Matrix4> {
+        self.world_matrix
     }
 
     #[inline]
-    pub fn add_projection_right(mut self, projection: Matrix4) -> Self {
-        if let Some(s) = self.projection {
-            self.projection = Some(s * projection);
+    pub fn add_world_matrix_right(mut self, matrix: Matrix4) -> Self {
+        if let Some(s) = self.world_matrix {
+            self.world_matrix = Some(s * matrix);
         } else {
-            self.projection = Some(projection);
+            self.world_matrix = Some(matrix);
         }
 
         self
     }
 
     #[inline]
-    pub fn add_projection_left(mut self, projection: Matrix4) -> Self {
-        if let Some(s) = self.projection {
-            self.projection = Some(projection * s);
+    pub fn add_world_matrix_left(mut self, matrix: Matrix4) -> Self {
+        if let Some(s) = self.world_matrix {
+            self.world_matrix = Some(matrix * s);
         } else {
-            self.projection = Some(projection);
+            self.world_matrix = Some(matrix);
         }
 
         self
     }
+}
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialOrd, PartialEq, Zeroable, Pod)]
+pub struct MatrixData {
+    model_matrix: RawMat4,
+    world_matrix: RawMat4,
+    normal_matrix: [[Float; 4]; 3],
 }
 
 #[repr(C)]
@@ -179,53 +186,61 @@ pub struct RawInstanceData {
     color_offset: VertexColor,
     alpha: Float,
     light_pos: [Float; 4],
-    model_matrix: RawMat4,
-    normal_matrix: RawMat3,
+    matrix_index: u32,
 }
 
-impl From<InstanceData> for RawInstanceData {
-    fn from(value: InstanceData) -> Self {
-        let model_matrix = if let Some(projection) = value.projection {
-            projection * value.model_matrix
-        } else {
-            value.model_matrix
-        };
-
-        let invert_transpose = value.model_matrix.inverse().transpose();
-
-        Self {
-            color_offset: value.color_offset,
-            alpha: value.alpha,
-            light_pos: [
-                value.light_pos.x,
-                value.light_pos.y,
-                value.light_pos.z,
-                value.light_pos.w,
-            ],
-            model_matrix: model_matrix.to_cols_array_2d(),
-            normal_matrix: Matrix3::from_cols(
-                invert_transpose.x_axis.truncate(),
-                invert_transpose.y_axis.truncate(),
-                invert_transpose.z_axis.truncate(),
-            )
-            .to_cols_array_2d(),
-        }
-    }
-}
+static FIX_COORD: Matrix4 = Matrix4::from_cols(
+    vec4(1.0, 0.0, 0.0, 0.0),
+    vec4(0.0, -1.0, 0.0, 0.0),
+    vec4(0.0, 0.0, 1.0, 0.0),
+    vec4(0.0, 0.0, 0.0, 1.0),
+);
 
 impl RawInstanceData {
+    pub fn from_instance(instance: InstanceData, buffer: &mut Vec<MatrixData>) -> Self {
+        let world_matrix = if let Some(world_matrix) = instance.world_matrix {
+            FIX_COORD * world_matrix
+        } else {
+            FIX_COORD
+        };
+        let model_matrix = instance.model_matrix;
+        let invert_transpose = instance.model_matrix.inverse().transpose();
+
+        let matrix_data = MatrixData {
+            model_matrix: model_matrix.to_cols_array_2d(),
+            normal_matrix: [
+                invert_transpose.x_axis.to_array(),
+                invert_transpose.y_axis.to_array(),
+                invert_transpose.z_axis.to_array(),
+            ],
+            world_matrix: world_matrix.to_cols_array_2d(),
+        };
+
+        if Some(&matrix_data) != buffer.last() {
+            buffer.push(matrix_data);
+        }
+        debug_assert!(!buffer.is_empty());
+        let index = buffer.len() - 1;
+
+        Self {
+            color_offset: instance.color_offset,
+            alpha: instance.alpha,
+            light_pos: [
+                instance.light_pos.x,
+                instance.light_pos.y,
+                instance.light_pos.z,
+                instance.light_pos.w,
+            ],
+            matrix_index: index as u32,
+        }
+    }
+
     pub fn desc() -> VertexBufferLayout<'static> {
         static ATTRIBUTES: &[VertexAttribute] = &vertex_attr_array![
             3 => Float32x4,
             4 => Float32,
             5 => Float32x4,
-            6 => Float32x4,
-            7 => Float32x4,
-            8 => Float32x4,
-            9 => Float32x4,
-            10 => Float32x3,
-            11 => Float32x3,
-            12 => Float32x3,
+            6 => Uint32,
         ];
 
         VertexBufferLayout {
@@ -244,32 +259,12 @@ pub static DEFAULT_LIGHT_COLOR: VertexColor = [1.0; 4];
 #[derive(Clone, Copy, Debug, Zeroable, Pod)]
 pub struct GameUBO {
     light_color: VertexColor,
-    world_matrix: RawMat4,
 }
-
-static FIX_COORD: RawMat4 = [
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, -1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 1.0],
-];
 
 impl Default for GameUBO {
     fn default() -> Self {
         Self {
             light_color: DEFAULT_LIGHT_COLOR,
-            world_matrix: FIX_COORD,
-        }
-    }
-}
-
-impl GameUBO {
-    pub fn new(world: Matrix4) -> Self {
-        let world = Matrix4::from_cols_array_2d(&FIX_COORD) * world;
-
-        Self {
-            world_matrix: world.to_cols_array_2d(),
-            ..Default::default()
         }
     }
 }

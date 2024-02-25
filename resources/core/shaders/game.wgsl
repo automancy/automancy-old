@@ -1,10 +1,18 @@
 struct Uniform {
     light_color: vec4<f32>,
+}
+
+struct MatrixData {
+    model_matrix: mat4x4<f32>,
     world_matrix: mat4x4<f32>,
+    normal_matrix: mat3x3<f32>,
 }
 
 @group(0) @binding(0)
 var<uniform> ubo: Uniform;
+
+@group(0) @binding(1)
+var<storage, read> matrix_data: array<MatrixData>;
 
 struct VertexInput {
     @location(0) pos: vec3<f32>,
@@ -16,14 +24,7 @@ struct InstanceInput {
     @location(3) color_offset: vec4<f32>,
     @location(4) alpha: f32,
     @location(5) light_pos: vec4<f32>,
-
-    @location(6) model_matrix_0: vec4<f32>,
-    @location(7) model_matrix_1: vec4<f32>,
-    @location(8) model_matrix_2: vec4<f32>,
-    @location(9) model_matrix_3: vec4<f32>,
-    @location(10) normal_matrix_0: vec3<f32>,
-    @location(11) normal_matrix_1: vec3<f32>,
-    @location(12) normal_matrix_2: vec3<f32>,
+    @location(6) matrix_index: u32,
 }
 
 struct VertexOutput {
@@ -41,21 +42,15 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    let model_matrix = mat4x4(
-       instance.model_matrix_0,
-       instance.model_matrix_1,
-       instance.model_matrix_2,
-       instance.model_matrix_3,
-   );
-    let model_pos = model_matrix * vec4(in.pos, 1.0);
-    out.model_pos = model_pos.xyz / model_pos.w;
-    out.pos = ubo.world_matrix * model_pos;
+    let m = matrix_data[instance.matrix_index];
+    let model_matrix  = m.model_matrix;
+    let normal_matrix = m.normal_matrix;
+    let world_matrix  = m.world_matrix;
 
-    let normal_matrix = mat3x3(
-       instance.normal_matrix_0,
-       instance.normal_matrix_1,
-       instance.normal_matrix_2,
-    );
+    let model_pos = model_matrix * vec4(in.pos, 1.0);
+
+    out.model_pos = model_pos.xyz / model_pos.w;
+    out.pos = world_matrix * model_pos;
     out.normal = normalize(normal_matrix * in.normal);
 
     out.color = vec4(mix(instance.color_offset.rgb, in.color.rgb, in.color.a - instance.color_offset.a), instance.alpha * in.color.a);

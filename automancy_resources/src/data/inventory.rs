@@ -8,7 +8,7 @@ use automancy_defs::id::{Id, IdRaw, Interner};
 use crate::data::item::Item;
 use crate::data::stack::ItemAmount;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Inventory(BTreeMap<Id, ItemAmount>);
 
 impl Deref for Inventory {

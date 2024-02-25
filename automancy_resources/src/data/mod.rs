@@ -18,7 +18,7 @@ pub mod item;
 pub mod stack;
 
 /// Represents the data a tile entity holds. This data is given to functions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Data {
     Inventory(Inventory),
     Coord(TileCoord),

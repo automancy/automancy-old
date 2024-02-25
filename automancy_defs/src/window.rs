@@ -15,3 +15,9 @@ pub fn window_size_double(window: &Window) -> (Double, Double) {
 
     (width as Double, height as Double)
 }
+
+pub fn window_aspect(window: &Window) -> Double {
+    let PhysicalSize { width, height } = window.inner_size();
+
+    width as Double / height as Double
+}

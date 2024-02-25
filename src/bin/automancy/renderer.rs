@@ -132,6 +132,7 @@ impl<'a> Renderer<'a> {
         let culling_range = setup.camera.culling_range;
         let camera_pos = setup.camera.get_pos();
         let camera_pos_float = camera_pos.as_vec3();
+        let world_matrix = setup.camera.get_matrix().as_mat4();
 
         let mut animation_map = gui
             .renderer
@@ -178,6 +179,7 @@ impl<'a> Renderer<'a> {
                     direction_previews.push((
                         InstanceData::default()
                             .with_color_offset(color.to_array())
+                            .with_world_matrix(world_matrix)
                             .with_model_matrix(
                                 unit.instance.get_model_matrix()
                                     * Matrix4::from_rotation_z(FRAC_PI_6 * 5.0)
@@ -202,6 +204,7 @@ impl<'a> Renderer<'a> {
                     InstanceData::default()
                         .with_color_offset(colors::RED.to_array())
                         .with_light_pos(camera_pos_float, None)
+                        .with_world_matrix(world_matrix)
                         .with_model_matrix(make_line(
                             HEX_GRID_LAYOUT.hex_to_world_pos(*coord),
                             HEX_GRID_LAYOUT.hex_to_world_pos(**link),
@@ -239,6 +242,7 @@ impl<'a> Renderer<'a> {
                             )) * Matrix4::from_rotation_z(theta)
                                 * Matrix4::from_scale(vec3(0.3, 0.3, 0.3)),
                         )
+                        .with_world_matrix(world_matrix)
                         .with_light_pos(camera_pos_float, None);
                     let model = setup.resource_man.get_item_model(stack.item);
 
@@ -296,7 +300,13 @@ impl<'a> Renderer<'a> {
 
                 map.entry(model)
                     .or_insert_with(|| Vec::with_capacity(32))
-                    .push((instance.with_light_pos(camera_pos_float, None), model, ()))
+                    .push((
+                        instance
+                            .with_light_pos(camera_pos_float, None)
+                            .with_world_matrix(world_matrix),
+                        model,
+                        (),
+                    ))
             }
 
             map.into_values().flatten().collect::<Vec<_>>()
@@ -355,18 +365,21 @@ impl<'a> Renderer<'a> {
     ) -> Result<(), SurfaceError> {
         let size = self.gpu.window.inner_size();
         let factor = gui.context.pixels_per_point();
-        let matrix = setup.camera.get_matrix().as_mat4();
 
-        let (game_instances, game_draws, game_draw_count) =
+        let (game_instances, game_draws, game_draw_count, game_matrix_data) =
             gpu::indirect_instance(&setup.resource_man, game_instances, true, animation_map);
 
-        let (in_world_item_instances, in_world_item_draws, in_world_item_draw_count) =
-            gpu::indirect_instance(
-                &setup.resource_man,
-                in_world_item_instances,
-                true,
-                animation_map,
-            );
+        let (
+            in_world_item_instances,
+            in_world_item_draws,
+            in_world_item_draw_count,
+            in_world_item_matrix_data,
+        ) = gpu::indirect_instance(
+            &setup.resource_man,
+            in_world_item_instances,
+            true,
+            animation_map,
+        );
 
         let egui_out = gui.context.end_frame();
         let egui_primitives = gui.context.tessellate(egui_out.shapes, factor);
@@ -455,7 +468,12 @@ impl<'a> Renderer<'a> {
                 self.gpu.queue.write_buffer(
                     &self.render_resources.game_resources.uniform_buffer,
                     0,
-                    bytemuck::cast_slice(&[GameUBO::new(matrix)]),
+                    bytemuck::cast_slice(&[GameUBO::default()]),
+                );
+                self.gpu.queue.write_buffer(
+                    &self.render_resources.game_resources.matrix_data_buffer,
+                    0,
+                    bytemuck::cast_slice(game_matrix_data.as_slice()),
                 );
 
                 game_pass.set_viewport(
@@ -558,7 +576,15 @@ impl<'a> Renderer<'a> {
                 self.gpu.queue.write_buffer(
                     &self.render_resources.in_world_item_resources.uniform_buffer,
                     0,
-                    bytemuck::cast_slice(&[GameUBO::new(matrix)]),
+                    bytemuck::cast_slice(&[GameUBO::default()]),
+                );
+                self.gpu.queue.write_buffer(
+                    &self
+                        .render_resources
+                        .in_world_item_resources
+                        .matrix_data_buffer,
+                    0,
+                    bytemuck::cast_slice(in_world_item_matrix_data.as_slice()),
                 );
 
                 in_world_item_pass.set_viewport(
@@ -569,10 +595,11 @@ impl<'a> Renderer<'a> {
                     1.0,
                     0.0,
                 );
-                in_world_item_pass.set_pipeline(&self.render_resources.game_resources.pipeline);
+                in_world_item_pass
+                    .set_pipeline(&self.render_resources.in_world_item_resources.pipeline);
                 in_world_item_pass.set_bind_group(
                     0,
-                    &self.render_resources.game_resources.bind_group,
+                    &self.render_resources.in_world_item_resources.bind_group,
                     &[],
                 );
                 in_world_item_pass

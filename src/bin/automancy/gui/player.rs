@@ -61,7 +61,7 @@ fn take_item_animation(
                     rect,
                     GameEguiCallback::new(
                         InstanceData::default()
-                            .with_projection(math::view(dvec3(0.0, 0.0, 1.0)).as_mat4()),
+                            .with_world_matrix(math::view(dvec3(0.0, 0.0, 1.0)).as_mat4()),
                         setup.resource_man.get_item_model(item),
                         rect,
                         ui.ctx().screen_rect(),
