@@ -34,25 +34,35 @@ fn vs_main(
 }
 
 const FXAA_SPAN_MAX: f32 = 4.0;
-const FXAA_REDUCE_MIN: f32 = 0.0125;
-const FXAA_REDUCE_MUL: f32 = 1.0;
+const FXAA_REDUCE_MIN: f32 = 0.0078125;
+const FXAA_REDUCE_MUL: f32 = 0.25;
 const LUMA = vec3<f32>(0.299, 0.587, 0.114);
+
+fn deez(depth: f32) -> f32 {
+    if (depth >= 1.0) {
+        return 0.0;
+    } else {
+        return 1.0;
+    }
+}
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let texel_size = 1.0 / vec2<f32>(textureDimensions(frame_texture));
 
-    let c  = textureSample(frame_texture, frame_sampler, in.uv) * f32(textureSample(depth_texture, depth_sampler, in.uv) <= 0.0);
-    let ne = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>( 1.0,  1.0)) * f32(textureSample(depth_texture, depth_sampler, in.uv + texel_size * vec2<f32>( 1.0,  1.0)) <= 0.0);
-    let nw = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>(-1.0,  1.0)) * f32(textureSample(depth_texture, depth_sampler, in.uv + texel_size * vec2<f32>(-1.0,  1.0)) <= 0.0);
-    let se = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>( 1.0, -1.0)) * f32(textureSample(depth_texture, depth_sampler, in.uv + texel_size * vec2<f32>( 1.0, -1.0)) <= 0.0);
-    let sw = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>(-1.0, -1.0)) * f32(textureSample(depth_texture, depth_sampler, in.uv + texel_size * vec2<f32>(-1.0, -1.0)) <= 0.0);
+    let  c = textureSample(frame_texture, frame_sampler, in.uv);
+    let ne = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>( 1.0,  1.0));
+    let nw = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>(-1.0,  1.0));
+    let se = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>( 1.0, -1.0));
+    let sw = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>(-1.0, -1.0));
 
-    let luma_ne = dot(ne.rgb, LUMA);
-    let luma_nw = dot(nw.rgb, LUMA);
-    let luma_se = dot(se.rgb, LUMA);
-    let luma_sw = dot(sw.rgb, LUMA);
-    let luma_c  = dot( c.rgb, LUMA);
+    let deez_depth  = deez(textureSample(depth_texture, depth_sampler, in.uv));
+
+    let luma_c  = dot( c.rgb * deez_depth, LUMA);
+    let luma_ne = dot(ne.rgb * deez_depth, LUMA);
+    let luma_nw = dot(nw.rgb * deez_depth, LUMA);
+    let luma_se = dot(se.rgb * deez_depth, LUMA);
+    let luma_sw = dot(sw.rgb * deez_depth, LUMA);
 
     let luma_min = min(luma_c, min(min(luma_nw, luma_ne), min(luma_sw, luma_se)));
     let luma_max = max(luma_c, max(max(luma_nw, luma_ne), max(luma_sw, luma_se)));
@@ -73,21 +83,21 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec2(FXAA_SPAN_MAX, FXAA_SPAN_MAX)
     ) * texel_size;
 
-    let rgb_a = (1.0 / 2.0) * (
+    let rgba_a = (1.0 / 2.0) * (
         textureSample(frame_texture, frame_sampler, in.uv + texel_dir * (1.0 / 3.0 - 0.5)) +
         textureSample(frame_texture, frame_sampler, in.uv + texel_dir * (2.0 / 3.0 - 0.5))
     );
 
-    let rgb_b = rgb_a * (1.0 / 2.0) + (1.0 / 4.0) * (
+    let rgba_b = rgba_a * (1.0 / 2.0) + (1.0 / 4.0) * (
         textureSample(frame_texture, frame_sampler, in.uv + texel_dir * (0.0 / 3.0 - 0.5)) +
         textureSample(frame_texture, frame_sampler, in.uv + texel_dir * (3.0 / 3.0 - 0.5))
     );
 
-    let luma_b = dot(rgb_b.rgb, LUMA);
+    let luma_b = dot(rgba_b.rgb, LUMA);
 
     if ((luma_b < luma_min) || (luma_b > luma_max)) {
-        return rgb_a;
+        return rgba_a;
     } else {
-        return rgb_b;
+        return rgba_b;
     }
 }

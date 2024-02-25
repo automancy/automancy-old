@@ -147,8 +147,8 @@ pub fn normalized_to_world(
     let projection = projection(aspect).inverse();
 
     let pos = dvec4(normalized.x, normalized.y, camera_pos.z, camera_pos.z);
-    let pos = angle * pos;
     let pos = view * pos;
+    let pos = angle * pos;
     let pos = projection * pos;
     let pos = pos.truncate() * pos.z;
 

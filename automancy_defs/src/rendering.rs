@@ -1,3 +1,4 @@
+use std::f32::consts::FRAC_PI_4;
 use std::mem::size_of;
 
 use bytemuck::{Pod, Zeroable};
@@ -5,11 +6,11 @@ use egui::NumExt;
 use egui_wgpu::wgpu::{
     vertex_attr_array, BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode,
 };
-use glam::{vec3, vec4, Mat3};
+use glam::{vec3, vec4};
 use gltf::animation::Interpolation;
 use gltf::scene::Transform;
 
-use crate::math::{direction_to_angle, Float, Matrix4, Vec2, Vec3, Vec4};
+use crate::math::{direction_to_angle, Float, Matrix3, Matrix4, Vec2, Vec3, Vec4};
 
 /// Produces a line shape.
 pub fn make_line(a: Vec2, b: Vec2) -> Matrix4 {
@@ -204,10 +205,10 @@ impl RawInstanceData {
             FIX_COORD
         };
         let model_matrix = instance.model_matrix;
-        let inverse_transpose = Mat3::from_cols(
-            instance.model_matrix.x_axis.truncate(),
-            instance.model_matrix.y_axis.truncate(),
-            instance.model_matrix.z_axis.truncate(),
+        let inverse_transpose = Matrix3::from_cols(
+            model_matrix.x_axis.truncate(),
+            model_matrix.y_axis.truncate(),
+            model_matrix.z_axis.truncate(),
         )
         .inverse()
         .transpose();

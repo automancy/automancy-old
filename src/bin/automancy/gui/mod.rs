@@ -349,14 +349,13 @@ impl CallbackTrait for GameEguiCallback {
 
     fn paint<'a>(
         &'a self,
-        info: PaintCallbackInfo,
+        _info: PaintCallbackInfo,
         render_pass: &mut RenderPass<'a>,
         callback_resources: &'a CallbackResources,
     ) {
         if let Some(draws) =
             callback_resources.get::<HashMap<Id, Vec<(DrawIndexedIndirectArgs, u32)>>>()
         {
-            let viewport = info.viewport_in_pixels();
             let gui_resources = callback_resources.get::<GuiResources>().unwrap();
             let global_buffers = callback_resources.get::<Arc<GlobalBuffers>>().unwrap();
 
@@ -366,14 +365,6 @@ impl CallbackTrait for GameEguiCallback {
             render_pass.set_vertex_buffer(1, gui_resources.instance_buffer.slice(..));
             render_pass
                 .set_index_buffer(global_buffers.index_buffer.slice(..), IndexFormat::Uint16);
-            render_pass.set_viewport(
-                viewport.left_px as f32,
-                viewport.top_px as f32,
-                viewport.width_px as f32,
-                viewport.height_px as f32,
-                1.0,
-                0.0,
-            );
 
             for (draw, ..) in draws[&self.model].iter().filter(|v| v.1 == self.index) {
                 render_pass.draw_indexed(

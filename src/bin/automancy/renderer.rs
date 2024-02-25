@@ -455,7 +455,7 @@ impl<'a> Renderer<'a> {
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &self.shared_resources.depth_texture().1,
                     depth_ops: Some(Operations {
-                        load: LoadOp::Clear(0.0),
+                        load: LoadOp::Clear(1.0),
                         store: StoreOp::Store,
                     }),
                     stencil_ops: None,
@@ -476,14 +476,6 @@ impl<'a> Renderer<'a> {
                     bytemuck::cast_slice(game_matrix_data.as_slice()),
                 );
 
-                game_pass.set_viewport(
-                    0.0,
-                    0.0,
-                    size.width as Float,
-                    size.height as Float,
-                    1.0,
-                    0.0,
-                );
                 game_pass.set_pipeline(&self.render_resources.game_resources.pipeline);
                 game_pass.set_bind_group(0, &self.render_resources.game_resources.bind_group, &[]);
                 game_pass.set_vertex_buffer(0, self.global_buffers.vertex_buffer.slice(..));
@@ -587,14 +579,6 @@ impl<'a> Renderer<'a> {
                     bytemuck::cast_slice(in_world_item_matrix_data.as_slice()),
                 );
 
-                in_world_item_pass.set_viewport(
-                    0.0,
-                    0.0,
-                    (size.width) as Float,
-                    (size.height) as Float,
-                    1.0,
-                    0.0,
-                );
                 in_world_item_pass
                     .set_pipeline(&self.render_resources.in_world_item_resources.pipeline);
                 in_world_item_pass.set_bind_group(
@@ -689,7 +673,7 @@ impl<'a> Renderer<'a> {
                     depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                         view: &self.render_resources.egui_resources.depth_texture().1,
                         depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
+                            load: LoadOp::Clear(1.0),
                             store: StoreOp::Store,
                         }),
                         stencil_ops: None,

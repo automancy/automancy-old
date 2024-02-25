@@ -206,7 +206,7 @@ pub fn init_gpu_resources(
             depth_stencil: Some(DepthStencilState {
                 format: DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_compare: CompareFunction::Less,
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -339,7 +339,7 @@ pub fn init_gpu_resources(
             depth_stencil: Some(DepthStencilState {
                 format: DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_compare: CompareFunction::Less,
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -458,7 +458,7 @@ pub fn init_gpu_resources(
             depth_stencil: Some(DepthStencilState {
                 format: DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_compare: CompareFunction::Less,
                 stencil: Default::default(),
                 bias: Default::default(),
             }),

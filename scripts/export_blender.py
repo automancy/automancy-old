@@ -1,6 +1,7 @@
-import bpy
 import bmesh
+import bpy
 import sys
+
 
 def main():
     dst = sys.argv[-1]
