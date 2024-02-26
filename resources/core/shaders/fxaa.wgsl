@@ -58,11 +58,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let deez_depth  = deez(textureSample(depth_texture, depth_sampler, in.uv));
 
-    let luma_c  = dot( c.rgb * deez_depth, LUMA);
-    let luma_ne = dot(ne.rgb * deez_depth, LUMA);
-    let luma_nw = dot(nw.rgb * deez_depth, LUMA);
-    let luma_se = dot(se.rgb * deez_depth, LUMA);
-    let luma_sw = dot(sw.rgb * deez_depth, LUMA);
+    let luma_c  = dot( c.rgb * deez_depth, LUMA) - (1.0 -  c.a);
+    let luma_ne = dot(ne.rgb * deez_depth, LUMA) - (1.0 - ne.a);
+    let luma_nw = dot(nw.rgb * deez_depth, LUMA) - (1.0 - nw.a);
+    let luma_se = dot(se.rgb * deez_depth, LUMA) - (1.0 - se.a);
+    let luma_sw = dot(sw.rgb * deez_depth, LUMA) - (1.0 - sw.a);
 
     let luma_min = min(luma_c, min(min(luma_nw, luma_ne), min(luma_sw, luma_se)));
     let luma_max = max(luma_c, max(max(luma_nw, luma_ne), max(luma_sw, luma_se)));
