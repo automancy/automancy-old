@@ -12,7 +12,6 @@ use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
 use egui::{FontData, FontDefinitions};
 use env_logger::Env;
-use futures::executor::block_on;
 use native_dialog::{MessageDialog, MessageType};
 use num::Zero;
 use tokio::runtime::Runtime;
@@ -162,7 +161,7 @@ fn main() -> eyre::Result<()> {
         .block_on(GameSetup::setup(camera))
         .expect("Critical failure in game setup");
 
-    let gpu = block_on(Gpu::new(&window, setup.options.graphics.fps_limit == 0.0));
+    let gpu = runtime.block_on(Gpu::new(&window, setup.options.graphics.fps_limit == 0.0));
 
     // --- gui ---
     log::info!("Setting up gui...");
