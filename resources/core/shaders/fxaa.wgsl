@@ -56,7 +56,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let se = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>( 1.0, -1.0));
     let sw = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>(-1.0, -1.0));
 
-    let deez_depth  = deez(textureSample(depth_texture, depth_sampler, in.uv));
+    let deez_depth = deez(textureSample(depth_texture, depth_sampler, in.uv));
 
     let luma_c  = dot( c.rgb * deez_depth, LUMA) - (1.0 -  c.a);
     let luma_ne = dot(ne.rgb * deez_depth, LUMA) - (1.0 - ne.a);
