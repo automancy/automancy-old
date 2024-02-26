@@ -5,17 +5,18 @@ use std::time::Instant;
 use ractor::concurrency::JoinHandle;
 use ractor::{Actor, ActorRef};
 
-use automancy::camera::Camera;
-use automancy::game::{Game, GameMsg, TICK_INTERVAL};
-use automancy::input::InputHandler;
-use automancy::map::{Map, MapInfo, MAIN_MENU, MAP_PATH};
-use automancy::options::Options;
 use automancy_defs::log;
 use automancy_defs::rendering::Vertex;
 use automancy_resources::kira::manager::backend::cpal::CpalBackend;
 use automancy_resources::kira::manager::{AudioManager, AudioManagerSettings};
 use automancy_resources::kira::track::{TrackBuilder, TrackHandle};
 use automancy_resources::{ResourceManager, RESOURCES_PATH, RESOURCE_MAN};
+
+use crate::camera::Camera;
+use crate::game::{Game, GameMsg, TICK_INTERVAL};
+use crate::input::InputHandler;
+use crate::map::{Map, MapInfo, MAIN_MENU, MAP_PATH};
+use crate::options::Options;
 
 /// Initialize the Resource Manager system, and loads all the resources in all namespaces.
 fn load_resources(track: TrackHandle) -> (Arc<ResourceManager>, Vec<Vertex>, Vec<u16>) {

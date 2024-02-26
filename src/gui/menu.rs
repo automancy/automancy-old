@@ -9,19 +9,18 @@ use egui::{
 use futures::executor::block_on;
 use winit::event_loop::EventLoopWindowTarget;
 
-use automancy::game::GameMsg;
-use automancy::map::{Map, MAIN_MENU};
-use automancy::options::AAType;
-use automancy::VERSION;
 use automancy_defs::flexstr::ToSharedStr;
 use automancy_defs::gui::HyperlinkWidget;
 use automancy_defs::log;
 use automancy_resources::{format, format_time};
 
 use crate::event::{shutdown_graceful, EventLoopStorage};
+use crate::game::GameMsg;
 use crate::gui::{default_frame, OptionsMenuState, PopupState, Screen, SubState, TextField};
+use crate::map::{Map, MAIN_MENU};
+use crate::options::AAType;
 use crate::setup::GameSetup;
-use crate::{LOGO, LOGO_PATH};
+use crate::{LOGO, LOGO_PATH, VERSION};
 
 /// Draws the main menu.
 pub fn main_menu(

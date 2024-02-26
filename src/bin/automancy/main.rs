@@ -12,8 +12,8 @@ use color_eyre::config::HookBuilder;
 use color_eyre::eyre;
 use egui::{FontData, FontDefinitions};
 use env_logger::Env;
-use native_dialog::{MessageDialog, MessageType};
 use num::Zero;
+use rfd::{MessageButtons, MessageDialog, MessageLevel};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 use winit::dpi::PhysicalSize;
@@ -29,17 +29,10 @@ use automancy_defs::math::Double;
 use automancy_defs::{log, window};
 use automancy_resources::kira::tween::Tween;
 
-use crate::event::{on_event, EventLoopStorage};
-use crate::renderer::Renderer;
-use crate::setup::GameSetup;
-
-pub static LOGO_PATH: &str = "assets/logo.png";
-pub static LOGO: &[u8] = include_bytes!("assets/logo.png");
-
-mod event;
-mod gui;
-pub mod renderer;
-mod setup;
+use automancy::event::{on_event, EventLoopStorage};
+use automancy::renderer::Renderer;
+use automancy::setup::GameSetup;
+use automancy::LOGO;
 
 /// Gets the game icon.
 fn get_icon() -> Icon {
@@ -127,10 +120,11 @@ fn main() -> eyre::Result<()> {
                         eprintln!("\n\n\n{}\n\n\n", message);
 
                         _ = MessageDialog::new()
-                            .set_type(MessageType::Error)
+                            .set_level(MessageLevel::Error)
+                            .set_buttons(MessageButtons::Ok)
                             .set_title("automancy crash dialog")
-                            .set_text(&message)
-                            .show_alert();
+                            .set_description(message)
+                            .show();
                     }
                 }
             }

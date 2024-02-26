@@ -12,6 +12,7 @@ edition = "2021"
 
 [[bin]]
 name = "automancy"
+required-features = ["build-binary"]
 
 
 
@@ -98,12 +99,6 @@ rhai = { workspace = true }
 
 automancy_resources = { path = "automancy_resources" }
 
-env_logger = "0.11.0"
-native-dialog = "0.7.0"
-human-panic = "1.1.5"
-color-eyre = "0.6"
-strip-ansi-escapes = "0.2.0"
-
 enum-map = "2.6.3"
 arraydeque = "0.5.1"
 fuse-rust = "0.3.1"
@@ -121,3 +116,14 @@ futures = "0.3.28"
 ractor = "0.9.0"
 tokio = { version = "1", features = ["full"] }
 rayon = "1.7.0"
+
+
+
+env_logger = { version = "0.11.0", optional = true }
+rfd = { version = "0.13.0", optional = true }
+human-panic = { version = "1.1.5", optional = true }
+color-eyre = { version = "0.6", optional = true }
+strip-ansi-escapes = { version = "0.2.0", optional = true }
+
+[features]
+build-binary = ["env_logger", "rfd", "human-panic", "color-eyre", "strip-ansi-escapes"]

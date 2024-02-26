@@ -2,13 +2,13 @@ use std::fs;
 
 use egui::{vec2, Align2, Window};
 
-use automancy::game::GameMsg;
-use automancy::map::Map;
 use automancy_defs::gui::Gui;
 use automancy_defs::log;
 
 use crate::event::EventLoopStorage;
+use crate::game::GameMsg;
 use crate::gui::{default_frame, PopupState, Screen, TextField};
+use crate::map::Map;
 use crate::setup::GameSetup;
 
 pub fn invalid_name_popup(setup: &GameSetup, gui: &mut Gui, loop_store: &mut EventLoopStorage) {

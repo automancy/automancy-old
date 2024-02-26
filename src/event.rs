@@ -11,11 +11,6 @@ use futures::executor::block_on;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 
-use automancy::game::{GameMsg, PlaceTileResponse};
-use automancy::gpu::AnimationMap;
-use automancy::input;
-use automancy::input::KeyActions;
-use automancy::tile_entity::TileEntityMsg;
 use automancy_defs::colors::ColorAdj;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::glam::{dvec2, vec3};
@@ -28,13 +23,18 @@ use automancy_defs::{colors, log, math, window};
 use automancy_resources::data::item::Item;
 use automancy_resources::data::Data;
 
+use crate::game::{GameMsg, PlaceTileResponse};
+use crate::gpu::AnimationMap;
 use crate::gui;
 use crate::gui::{
     error, info, menu, player, popup, tile_config, tile_selection, GameEguiCallback, GuiState,
     PopupState, Screen, TextField,
 };
+use crate::input;
+use crate::input::KeyActions;
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
+use crate::tile_entity::TileEntityMsg;
 
 /// Stores information that lives for the entire lifetime of the session, and is not dropped at the end of one event cycle or handled elsewhere.
 pub struct EventLoopStorage {

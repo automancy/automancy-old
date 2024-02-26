@@ -5,8 +5,6 @@ use egui::{vec2, DragValue, Margin, Ui, Window};
 use futures::executor::block_on;
 use ractor::ActorRef;
 
-use automancy::game::GameMsg;
-use automancy::tile_entity::TileEntityMsg;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::id::Id;
 use automancy_defs::math::Float;
@@ -17,10 +15,12 @@ use automancy_resources::types::tile::Tile;
 use automancy_resources::ResourceManager;
 
 use crate::event::EventLoopStorage;
+use crate::game::GameMsg;
 use crate::gui;
 use crate::gui::item::draw_item;
 use crate::gui::{info_hover, TextField, MEDIUM_ICON_SIZE, SMALL_ICON_SIZE};
 use crate::setup::GameSetup;
+use crate::tile_entity::TileEntityMsg;
 
 /// Draws the direction selector.
 pub fn add_direction(ui: &mut Ui, target_coord: &mut Option<TileCoord>, n: u8) {

@@ -2,9 +2,8 @@ use egui::{Context, Window};
 use futures::executor::block_on;
 use ron::ser::PrettyConfig;
 
-use automancy::game::GameMsg;
-
 use crate::event::EventLoopStorage;
+use crate::game::GameMsg;
 use crate::gui::default_frame;
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;

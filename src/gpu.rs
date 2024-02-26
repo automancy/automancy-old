@@ -20,12 +20,12 @@ use wgpu::{AdapterInfo, Face, Surface};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
+use automancy_defs::bytemuck;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::Matrix4;
 use automancy_defs::rendering::{GameUBO, InstanceData, MatrixData, RawInstanceData, Vertex};
 use automancy_defs::slice_group_by::GroupBy;
-use automancy_defs::{bytemuck, log};
 use automancy_macros::OptionGetter;
 use automancy_resources::ResourceManager;
 

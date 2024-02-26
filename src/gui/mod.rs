@@ -12,9 +12,6 @@ use lazy_static::lazy_static;
 use wgpu::util::DrawIndexedIndirectArgs;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
-use crate::renderer::try_add_animation;
-use automancy::gpu;
-use automancy::gpu::{AnimationMap, GlobalBuffers, GuiResources};
 use automancy_defs::glam::vec3;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
@@ -22,6 +19,10 @@ use automancy_defs::math::{Float, Matrix4};
 use automancy_defs::rendering::InstanceData;
 use automancy_defs::{bytemuck, colors};
 use automancy_resources::ResourceManager;
+
+use crate::gpu;
+use crate::gpu::{AnimationMap, GlobalBuffers, GuiResources};
+use crate::renderer::try_add_animation;
 
 #[cfg(debug_assertions)]
 pub mod debug;

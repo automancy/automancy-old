@@ -19,14 +19,6 @@ use num::PrimInt;
 use tokio::sync::oneshot;
 use wgpu::StoreOp;
 
-use automancy::game::{GameMsg, RenderUnit, TransactionRecord, TRANSACTION_ANIMATION_SPEED};
-use automancy::gpu;
-use automancy::gpu::{
-    AnimationMap, GlobalBuffers, Gpu, RenderResources, SharedResources, NORMAL_CLEAR,
-    SCREENSHOT_FORMAT,
-};
-use automancy::input::KeyActions;
-use automancy::options::Options;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::glam::vec3;
 use automancy_defs::gui::Gui;
@@ -41,6 +33,14 @@ use automancy_defs::{bytemuck, colors};
 use automancy_resources::data::Data;
 use automancy_resources::ResourceManager;
 
+use crate::game::{GameMsg, RenderUnit, TransactionRecord, TRANSACTION_ANIMATION_SPEED};
+use crate::gpu;
+use crate::gpu::{
+    AnimationMap, GlobalBuffers, Gpu, RenderResources, SharedResources, NORMAL_CLEAR,
+    SCREENSHOT_FORMAT,
+};
+use crate::input::KeyActions;
+use crate::options::Options;
 use crate::setup::GameSetup;
 
 pub struct Renderer<'a> {

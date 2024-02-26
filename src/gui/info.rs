@@ -1,15 +1,15 @@
 use egui::{vec2, Align2, Context, Window};
 use futures::executor::block_on;
 
-use automancy::game::GameMsg;
-use automancy::tile_entity::TileEntityMsg;
 use automancy_defs::colors;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::Data;
 
+use crate::game::GameMsg;
 use crate::gui::item::draw_item;
 use crate::gui::{default_frame, SMALL_ICON_SIZE};
 use crate::setup::GameSetup;
+use crate::tile_entity::TileEntityMsg;
 
 /// Draws the info GUI.
 pub fn info(setup: &GameSetup, context: &Context) {

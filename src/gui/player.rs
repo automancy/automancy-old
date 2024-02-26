@@ -2,7 +2,6 @@ use std::time::Instant;
 
 use egui::{Context, Rect, ScrollArea, Ui, Window};
 
-use automancy::game::TAKE_ITEM_ANIMATION_SPEED;
 use automancy_defs::glam::dvec3;
 use automancy_defs::hashbrown::HashMap;
 use automancy_defs::math;
@@ -12,6 +11,7 @@ use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::{Data, DataMap};
 
 use crate::event::EventLoopStorage;
+use crate::game::TAKE_ITEM_ANIMATION_SPEED;
 use crate::gui::item::draw_item;
 use crate::gui::{default_frame, GameEguiCallback, Screen, MEDIUM_ICON_SIZE};
 use crate::setup::GameSetup;
