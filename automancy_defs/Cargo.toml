@@ -26,11 +26,11 @@ rhai = { workspace = true }
 log = "0.4"
 
 string-interner = { git = "https://github.com/automancy/string-interner" }
-hexx = { git = "https://github.com/ManevilleF/hexx.git", features = ["serde"] }
+hexx = { version = "0.15.0", features = ["serde"] }
 hashbrown = { version = "0.14.0", features = ["serde", "rayon"] }
 bytemuck = "1.8.0"
 flexstr = { version = "0.9.2", features = ["serde", "fast_format"] }
-glam = "0.24.2"
+glam = "0.25.0"
 color-hex = "0.2.0"
 slice-group-by = "0.3.0"
 petgraph = "0.6.4"
