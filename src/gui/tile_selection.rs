@@ -5,7 +5,7 @@ use egui::scroll_area::ScrollBarVisibility;
 use egui::{
     vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TopBottomPanel, Ui,
 };
-use futures::channel::mpsc;
+use tokio::sync::mpsc;
 
 use automancy_defs::glam::{dvec3, vec3};
 use automancy_defs::id::Id;
@@ -49,7 +49,7 @@ fn has_category_item(setup: &GameSetup, id: Id, game_data: &mut DataMap) -> bool
 fn draw_tile_selection(
     setup: &GameSetup,
     ui: &mut Ui,
-    mut selection_send: mpsc::Sender<Id>,
+    selection_send: &mpsc::Sender<Id>,
     game_data: &mut DataMap,
     current_category: Option<Id>,
 ) {
@@ -185,7 +185,7 @@ pub fn tile_selections(
                         draw_tile_selection(
                             setup,
                             ui,
-                            selection_send,
+                            &selection_send,
                             game_data,
                             loop_store.gui_state.tile_selection_category,
                         );

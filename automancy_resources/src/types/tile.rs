@@ -11,7 +11,7 @@ use crate::data::{DataMap, DataMapRaw};
 use crate::{load_recursively, ResourceManager, RON_EXT};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct TileRaw {
+pub struct TileDefRaw {
     pub id: IdRaw,
     pub function: Option<IdRaw>,
     pub model: IdRaw,
@@ -20,7 +20,7 @@ pub struct TileRaw {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tile {
+pub struct TileDef {
     pub model: Id,
     pub function: Option<Id>,
     pub data: DataMap,
@@ -30,7 +30,7 @@ impl ResourceManager {
     fn load_tile(&mut self, file: &Path) -> anyhow::Result<()> {
         log::info!("Loading tile at {file:?}");
 
-        let tile: TileRaw = ron::from_str(&read_to_string(file)?)?;
+        let tile: TileDefRaw = ron::from_str(&read_to_string(file)?)?;
 
         let id = tile.id.to_id(&mut self.interner);
         let function = tile.function.map(|v| v.to_id(&mut self.interner));
@@ -39,7 +39,7 @@ impl ResourceManager {
 
         self.registry.tiles.insert(
             id,
-            Tile {
+            TileDef {
                 function,
                 model,
                 data,

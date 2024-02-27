@@ -33,7 +33,7 @@ use crate::types::function::RhaiDataMap;
 use crate::types::model::IndexRange;
 use crate::types::script::{Instructions, Script};
 use crate::types::tag::Tag;
-use crate::types::tile::Tile;
+use crate::types::tile::TileDef;
 use crate::types::translate::Translate;
 
 pub mod data;
@@ -197,7 +197,7 @@ impl ResourceManager {
                     None => Dynamic::UNIT,
                 })
                 .register_get("outputs", |v: &mut Instructions| v.outputs.clone());
-            engine.register_type_with_name::<Tile>("Tile");
+            engine.register_type_with_name::<TileDef>("Tile");
             engine
                 .register_type_with_name::<Item>("Item")
                 .register_iterator::<Vec<Item>>()

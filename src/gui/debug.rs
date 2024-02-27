@@ -1,9 +1,7 @@
 use egui::{Context, Window};
-use futures::executor::block_on;
 use ron::ser::PrettyConfig;
 
 use crate::event::EventLoopStorage;
-use crate::game::GameMsg;
 use crate::gui::default_frame;
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
@@ -27,9 +25,10 @@ pub fn debugger(
     let audio = resource_man.audio.len();
     let meshes = resource_man.all_models.len();
 
-    let (info, map_name) = block_on(setup.game.call(GameMsg::GetMapInfo, None))
-        .unwrap()
-        .unwrap();
+    let lock = loop_store.map_info_cache.blocking_lock();
+    let Some((info, map_name)) = lock.as_ref() else {
+        return;
+    };
 
     let tile_count = info.tile_count;
 

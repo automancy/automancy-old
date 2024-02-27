@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use egui::Context;
 use egui::{vec2, DragValue, Margin, Ui, Window};
-use futures::executor::block_on;
 use ractor::ActorRef;
+use tokio::runtime::Runtime;
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::id::Id;
@@ -11,11 +11,10 @@ use automancy_defs::math::Float;
 use automancy_resources::data::inventory::Inventory;
 use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::{Data, DataMap};
-use automancy_resources::types::tile::Tile;
+use automancy_resources::types::tile::TileDef;
 use automancy_resources::ResourceManager;
 
 use crate::event::EventLoopStorage;
-use crate::game::GameMsg;
 use crate::gui;
 use crate::gui::item::draw_item;
 use crate::gui::{info_hover, TextField, MEDIUM_ICON_SIZE, SMALL_ICON_SIZE};
@@ -135,7 +134,7 @@ fn config_amount(
     setup: &GameSetup,
     data: &DataMap,
     tile_entity: ActorRef<TileEntityMsg>,
-    tile_info: &Tile,
+    tile_info: &TileDef,
 ) {
     let Some(Data::Amount(max_amount)) = tile_info
         .data
@@ -234,7 +233,7 @@ fn config_item(
     data: &DataMap,
     item_type: Id,
     tile_entity: ActorRef<TileEntityMsg>,
-    tile_info: &Tile,
+    tile_info: &TileDef,
 ) {
     let current_item = data
         .get(&setup.resource_man.registry.data_ids.item)
@@ -413,36 +412,22 @@ fn config_script(
 
 /// Draws the tile configuration menu.
 pub fn tile_config(
+    runtime: &Runtime,
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
     context: &Context,
     game_data: &mut DataMap,
 ) {
-    let Some(config_open) = loop_store.config_open else {
+    let Some(config_open_at) = loop_store.config_open_at else {
         return;
     };
 
-    let Some(id) = block_on(
-        setup
-            .game
-            .call(|reply| GameMsg::GetTile(config_open, reply), None),
-    )
-    .unwrap()
-    .unwrap() else {
+    let Some((tile, entity)) = loop_store.config_open_cache.blocking_lock().clone() else {
         return;
     };
 
-    let Some(entity) = block_on(
-        setup
-            .game
-            .call(|reply| GameMsg::GetTileEntity(config_open, reply), None),
-    )
-    .unwrap()
-    .unwrap() else {
-        return;
-    };
-
-    let data = block_on(entity.call(TileEntityMsg::GetData, None))
+    let data = runtime
+        .block_on(entity.call(TileEntityMsg::GetData, None))
         .unwrap()
         .unwrap();
 
@@ -459,7 +444,7 @@ pub fn tile_config(
 
         ui.set_max_width(300.0);
 
-        let tile_info = setup.resource_man.registry.tiles.get(&id).unwrap();
+        let tile_info = setup.resource_man.registry.tiles.get(&tile).unwrap();
 
         if let Some(Data::VecId(scripts)) = tile_info
             .data
@@ -534,7 +519,7 @@ pub fn tile_config(
         {
             ui.add_space(MARGIN);
             ui.vertical(|ui| {
-                config_linking(ui, setup, loop_store, config_open);
+                config_linking(ui, setup, loop_store, config_open_at);
             });
             ui.add_space(MARGIN);
         }

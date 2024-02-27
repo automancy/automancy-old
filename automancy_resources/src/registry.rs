@@ -9,12 +9,12 @@ use crate::types::category::Category;
 use crate::types::research::Research;
 use crate::types::script::Script;
 use crate::types::tag::Tag;
-use crate::types::tile::Tile;
+use crate::types::tile::TileDef;
 
 /// Represents the resource registry.
 #[derive(Clone)]
 pub struct Registry {
-    pub tiles: HashMap<Id, Tile>,
+    pub tiles: HashMap<Id, TileDef>,
     pub scripts: HashMap<Id, Script>,
     pub tags: HashMap<Id, Tag>,
     pub categories: HashMap<Id, Category>,

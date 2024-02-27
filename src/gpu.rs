@@ -112,7 +112,7 @@ pub fn init_gpu_resources(
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
-        const MATRIX_DATA_SIZE: usize = 16384;
+        const MATRIX_DATA_SIZE: usize = 65536;
         let matrix_data_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Game Matrix Data Buffer"),
             contents: &Vec::from_iter(

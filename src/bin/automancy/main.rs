@@ -207,6 +207,7 @@ fn main() -> eyre::Result<()> {
         }
 
         match on_event(
+            &runtime,
             &mut setup,
             &mut loop_store,
             &mut renderer,

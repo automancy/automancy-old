@@ -1,6 +1,5 @@
 use std::mem;
 
-use automancy_defs::glam::dvec2;
 use serde::{Deserialize, Serialize};
 use winit::event::ElementState::{Pressed, Released};
 use winit::event::{
@@ -8,6 +7,7 @@ use winit::event::{
 };
 use winit::keyboard::{Key, NamedKey, SmolStr};
 
+use automancy_defs::glam::dvec2;
 use automancy_defs::hashbrown::{HashMap, HashSet};
 use automancy_defs::math::{DVec2, Double};
 

@@ -7,7 +7,6 @@ use ractor::{Actor, ActorRef};
 
 use automancy_defs::log;
 use automancy_defs::rendering::Vertex;
-use automancy_resources::kira::manager::backend::cpal::CpalBackend;
 use automancy_resources::kira::manager::{AudioManager, AudioManagerSettings};
 use automancy_resources::kira::track::{TrackBuilder, TrackHandle};
 use automancy_resources::{ResourceManager, RESOURCES_PATH, RESOURCE_MAN};
@@ -97,7 +96,7 @@ impl GameSetup {
     pub async fn setup(camera: Camera) -> anyhow::Result<(Self, Vec<Vertex>, Vec<u16>)> {
         // --- resources & data ---
         log::info!("Initializing audio backend...");
-        let mut audio_man = AudioManager::<CpalBackend>::new(AudioManagerSettings::default())?;
+        let mut audio_man = AudioManager::new(AudioManagerSettings::default())?;
         let track = audio_man.add_sub_track({
             let builder = TrackBuilder::new();
 

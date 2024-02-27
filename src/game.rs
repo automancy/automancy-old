@@ -1,13 +1,14 @@
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Div;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use arraydeque::{ArrayDeque, Wrapping};
 use ractor::rpc::CallResult;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use rayon::prelude::*;
+use tokio::time::sleep;
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::hashbrown::HashMap;
@@ -68,7 +69,7 @@ pub struct GameState {
     /// what to do to undo the last UNDO_CACHE_SIZE user events
     undo_steps: ArrayDeque<Vec<GameMsg>, 16, Wrapping>,
     /// records transactions to be drawn
-    transaction_records: Arc<Mutex<TransactionRecords>>,
+    transaction_records: TransactionRecords,
 }
 
 /// Represents a message the game receives
@@ -113,7 +114,7 @@ pub enum GameMsg {
         reply: RpcReplyPort<RenderInfo>,
     },
 
-    GetRecordedTransactions(RpcReplyPort<Arc<Mutex<TransactionRecords>>>),
+    GetRecordedTransactions(RpcReplyPort<TransactionRecords>),
     RecordTransaction(ItemStack, TileCoord, TileCoord),
 }
 
@@ -167,7 +168,7 @@ impl Actor for Game {
 
                 state.map = map;
                 state.tile_entities = tile_entities;
-                state.transaction_records.lock().unwrap().clear();
+                state.transaction_records.clear();
                 state.undo_steps.clear();
 
                 log::info!("Successfully loaded map {name}!");
@@ -378,11 +379,10 @@ impl Actor for Game {
                         }
                     }
                     GetRecordedTransactions(reply) => {
-                        let mut transaction_records = state.transaction_records.lock().unwrap();
                         let mut to_remove = HashMap::new();
 
                         let now = Instant::now();
-                        for (coord, deque) in transaction_records.iter() {
+                        for (coord, deque) in state.transaction_records.iter() {
                             to_remove.insert(
                                 *coord,
                                 deque
@@ -396,16 +396,19 @@ impl Actor for Game {
 
                         for (coord, v) in to_remove {
                             for _ in 0..v {
-                                transaction_records.get_mut(&coord).unwrap().pop_front();
+                                state
+                                    .transaction_records
+                                    .get_mut(&coord)
+                                    .unwrap()
+                                    .pop_front();
                             }
                         }
 
                         reply.send(state.transaction_records.clone()).unwrap();
                     }
                     RecordTransaction(stack, source_coord, coord) => {
-                        let mut transaction_records = state.transaction_records.lock().unwrap();
-
-                        if let Some((instant, _)) = transaction_records
+                        if let Some((instant, _)) = state
+                            .transaction_records
                             .get(&(source_coord, coord))
                             .and_then(|v| v.back())
                         {
@@ -423,7 +426,8 @@ impl Actor for Game {
                             .cloned()
                             .zip(state.map.tiles.get(&coord).cloned())
                         {
-                            transaction_records
+                            state
+                                .transaction_records
                                 .entry((source_coord, coord))
                                 .or_insert_with(Default::default)
                                 .push_back((
@@ -666,7 +670,7 @@ impl Default for GameState {
             tile_entities: Default::default(),
 
             undo_steps: Default::default(),
-            transaction_records: Arc::new(Default::default()),
+            transaction_records: Default::default(),
         }
     }
 }

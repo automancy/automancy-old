@@ -6,7 +6,7 @@ use egui::{
     vec2, Align, Align2, Button, Checkbox, ComboBox, Context, Image, ImageSource, RichText,
     ScrollArea, Slider, TextEdit, TextStyle, Window,
 };
-use futures::executor::block_on;
+use tokio::runtime::Runtime;
 use winit::event_loop::EventLoopWindowTarget;
 
 use automancy_defs::flexstr::ToSharedStr;
@@ -24,6 +24,7 @@ use crate::{LOGO, LOGO_PATH, VERSION};
 
 /// Draws the main menu.
 pub fn main_menu(
+    runtime: &Runtime,
     setup: &mut GameSetup,
     context: &Context,
     target: &EventLoopWindowTarget<()>,
@@ -122,7 +123,7 @@ pub fn main_menu(
                         )
                         .clicked()
                     {
-                        result = shutdown_graceful(setup, target);
+                        result = runtime.block_on(shutdown_graceful(setup, target));
                     };
                     ui.label(VERSION)
                 },
@@ -133,7 +134,12 @@ pub fn main_menu(
 }
 
 /// Draws the pause menu.
-pub fn pause_menu(setup: &GameSetup, context: &Context, loop_store: &mut EventLoopStorage) {
+pub fn pause_menu(
+    runtime: &Runtime,
+    setup: &GameSetup,
+    context: &Context,
+    loop_store: &mut EventLoopStorage,
+) {
     Window::new("Game Paused")
         .resizable(false)
         .collapsible(false)
@@ -192,11 +198,14 @@ pub fn pause_menu(setup: &GameSetup, context: &Context, loop_store: &mut EventLo
                         )
                         .clicked()
                     {
-                        block_on(setup.game.call(
-                            |reply| GameMsg::SaveMap(setup.resource_man.clone(), reply),
-                            None,
-                        ))
-                        .unwrap();
+                        runtime
+                            .block_on(setup.game.call(
+                                |reply| GameMsg::SaveMap(setup.resource_man.clone(), reply),
+                                None,
+                            ))
+                            .unwrap()
+                            .unwrap();
+
                         setup
                             .game
                             .send_message(GameMsg::LoadMap(

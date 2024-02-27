@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::f32::consts::FRAC_PI_6;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -13,10 +14,10 @@ use egui_wgpu::wgpu::{
     COPY_BUFFER_ALIGNMENT, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
 use egui_wgpu::ScreenDescriptor;
-use futures::executor::block_on;
 use image::{EncodableLayout, RgbaImage};
 use num::PrimInt;
-use tokio::sync::oneshot;
+use tokio::runtime::Runtime;
+use tokio::sync::{oneshot, Mutex};
 use wgpu::StoreOp;
 
 use automancy_defs::coord::TileCoord;
@@ -33,7 +34,10 @@ use automancy_defs::{bytemuck, colors};
 use automancy_resources::data::Data;
 use automancy_resources::ResourceManager;
 
-use crate::game::{GameMsg, RenderUnit, TransactionRecord, TRANSACTION_ANIMATION_SPEED};
+use crate::game::{
+    GameMsg, RenderInfo, RenderUnit, TransactionRecord, TransactionRecords,
+    TRANSACTION_ANIMATION_SPEED,
+};
 use crate::gpu;
 use crate::gpu::{
     AnimationMap, GlobalBuffers, Gpu, RenderResources, SharedResources, NORMAL_CLEAR,
@@ -49,6 +53,11 @@ pub struct Renderer<'a> {
     pub render_resources: RenderResources,
     pub global_buffers: Arc<GlobalBuffers>,
     pub fps_limit: Double,
+
+    render_info_cache: Arc<Mutex<Option<RenderInfo>>>,
+    render_info_updating: Arc<AtomicBool>,
+    transaction_records_cache: Arc<Mutex<TransactionRecords>>,
+    transaction_records_updating: Arc<AtomicBool>,
 }
 
 impl<'a> Renderer<'a> {
@@ -65,6 +74,11 @@ impl<'a> Renderer<'a> {
             render_resources,
             global_buffers,
             fps_limit: options.graphics.fps_limit,
+
+            render_info_cache: Arc::new(Default::default()),
+            render_info_updating: Arc::new(Default::default()),
+            transaction_records_cache: Arc::new(Default::default()),
+            transaction_records_updating: Arc::new(Default::default()),
         }
     }
 }
@@ -117,6 +131,7 @@ pub fn try_add_animation(
 impl<'a> Renderer<'a> {
     pub fn render(
         &mut self,
+        runtime: &Runtime,
         setup: &GameSetup,
         gui: &mut Gui,
         tile_tints: HashMap<TileCoord, Rgba>,
@@ -130,6 +145,57 @@ impl<'a> Renderer<'a> {
         }
 
         let culling_range = setup.camera.culling_range;
+
+        if !self.render_info_updating.load(Ordering::Relaxed) {
+            let cache = self.render_info_cache.clone();
+            let updating = self.render_info_updating.clone();
+            let game = setup.game.clone();
+
+            updating.store(true, Ordering::Relaxed);
+
+            runtime.spawn(async move {
+                let result = game
+                    .call(
+                        |reply| GameMsg::RenderInfoRequest {
+                            culling_range,
+                            reply,
+                        },
+                        None,
+                    )
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                *cache.lock().await = Some(result);
+
+                updating.store(false, Ordering::Relaxed);
+            });
+        }
+
+        let Some((mut instances, all_data)) = self.render_info_cache.blocking_lock().clone() else {
+            return Ok(());
+        };
+
+        if !self.transaction_records_updating.load(Ordering::Relaxed) {
+            let cache = self.transaction_records_cache.clone();
+            let updating = self.transaction_records_updating.clone();
+            let game = setup.game.clone();
+
+            updating.store(true, Ordering::Relaxed);
+
+            runtime.spawn(async move {
+                let result = game
+                    .call(GameMsg::GetRecordedTransactions, None)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                *cache.lock().await = result;
+
+                updating.store(false, Ordering::Relaxed);
+            });
+        }
+
         let camera_pos = setup.camera.get_pos();
         let camera_pos_float = camera_pos.as_vec3();
         let world_matrix = setup.camera.get_matrix().as_mat4();
@@ -139,18 +205,6 @@ impl<'a> Renderer<'a> {
             .callback_resources
             .insert(AnimationMap::new())
             .unwrap();
-
-        let map_render_info = block_on(setup.game.call(
-            |reply| GameMsg::RenderInfoRequest {
-                culling_range,
-                reply,
-            },
-            None,
-        ))
-        .unwrap()
-        .unwrap();
-
-        let (mut instances, all_data) = map_render_info;
 
         let mut direction_previews = Vec::new();
 
@@ -214,39 +268,39 @@ impl<'a> Renderer<'a> {
             }
         }
 
-        let transaction_records_mutex =
-            block_on(setup.game.call(GameMsg::GetRecordedTransactions, None))
-                .unwrap()
-                .unwrap();
-        let transaction_records = transaction_records_mutex.lock().unwrap();
-        let now = Instant::now();
+        {
+            let transaction_records = self.transaction_records_cache.blocking_lock();
 
-        for ((source_coord, coord), instants) in transaction_records.iter() {
-            if culling_range.is_in_bounds(**source_coord) && culling_range.is_in_bounds(**coord) {
-                for (instant, TransactionRecord { stack, .. }) in instants {
-                    let duration = now.duration_since(*instant);
-                    let t = duration.as_secs_f64() / TRANSACTION_ANIMATION_SPEED.as_secs_f64();
+            let now = Instant::now();
 
-                    let point = lerp_coords_to_pixel(*source_coord, *coord, t as Float);
+            for ((source_coord, coord), instants) in transaction_records.iter() {
+                if culling_range.is_in_bounds(**source_coord) && culling_range.is_in_bounds(**coord)
+                {
+                    for (instant, TransactionRecord { stack, .. }) in instants {
+                        let duration = now.duration_since(*instant);
+                        let t = duration.as_secs_f64() / TRANSACTION_ANIMATION_SPEED.as_secs_f64();
 
-                    let direction = *coord - *source_coord;
-                    let direction = HEX_GRID_LAYOUT.hex_to_world_pos(*direction);
-                    let theta = direction_to_angle(direction);
+                        let point = lerp_coords_to_pixel(*source_coord, *coord, t as Float);
 
-                    let instance = InstanceData::default()
-                        .with_model_matrix(
-                            Matrix4::from_translation(vec3(
-                                point.x as Float,
-                                point.y as Float,
-                                (FAR + 0.025) as Float,
-                            )) * Matrix4::from_rotation_z(theta)
-                                * Matrix4::from_scale(vec3(0.3, 0.3, 0.3)),
-                        )
-                        .with_world_matrix(world_matrix)
-                        .with_light_pos(camera_pos_float, None);
-                    let model = setup.resource_man.get_item_model(stack.item);
+                        let direction = *coord - *source_coord;
+                        let direction = HEX_GRID_LAYOUT.hex_to_world_pos(*direction);
+                        let theta = direction_to_angle(direction);
 
-                    in_world_item_instances.push((instance, model));
+                        let instance = InstanceData::default()
+                            .with_model_matrix(
+                                Matrix4::from_translation(vec3(
+                                    point.x as Float,
+                                    point.y as Float,
+                                    (FAR + 0.025) as Float,
+                                )) * Matrix4::from_rotation_z(theta)
+                                    * Matrix4::from_scale(vec3(0.3, 0.3, 0.3)),
+                            )
+                            .with_world_matrix(world_matrix)
+                            .with_light_pos(camera_pos_float, None);
+                        let model = setup.resource_man.get_item_model(stack.item);
+
+                        in_world_item_instances.push((instance, model));
+                    }
                 }
             }
         }
