@@ -2,10 +2,6 @@
 var frame_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var frame_sampler: sampler;
-@group(0) @binding(2)
-var depth_texture: texture_depth_2d;
-@group(0) @binding(3)
-var depth_sampler: sampler;
 
 struct VertexInput {
     @builtin(vertex_index) idx: u32,
@@ -38,14 +34,6 @@ const FXAA_REDUCE_MIN: f32 = 0.0078125;
 const FXAA_REDUCE_MUL: f32 = 0.25;
 const LUMA = vec3<f32>(0.299, 0.587, 0.114);
 
-fn deez(depth: f32) -> f32 {
-    if (depth >= 1.0) {
-        return 0.0;
-    } else {
-        return 1.0;
-    }
-}
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let texel_size = 1.0 / vec2<f32>(textureDimensions(frame_texture));
@@ -56,13 +44,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let se = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>( 1.0, -1.0));
     let sw = textureSample(frame_texture, frame_sampler, in.uv + texel_size * vec2<f32>(-1.0, -1.0));
 
-    let deez_depth = deez(textureSample(depth_texture, depth_sampler, in.uv));
-
-    let luma_c  = dot( c.rgb * deez_depth, LUMA);
-    let luma_ne = dot(ne.rgb * deez_depth, LUMA);
-    let luma_nw = dot(nw.rgb * deez_depth, LUMA);
-    let luma_se = dot(se.rgb * deez_depth, LUMA);
-    let luma_sw = dot(sw.rgb * deez_depth, LUMA);
+    let luma_c  = dot( c.rgb, LUMA);
+    let luma_ne = dot(ne.rgb, LUMA);
+    let luma_nw = dot(nw.rgb, LUMA);
+    let luma_se = dot(se.rgb, LUMA);
+    let luma_sw = dot(sw.rgb, LUMA);
 
     let luma_min = min(luma_c, min(min(luma_nw, luma_ne), min(luma_sw, luma_se)));
     let luma_max = max(luma_c, max(max(luma_nw, luma_ne), max(luma_sw, luma_se)));

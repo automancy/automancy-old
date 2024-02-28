@@ -161,7 +161,7 @@ fn main() -> eyre::Result<()> {
     // --- gui ---
     log::info!("Setting up gui...");
     let mut egui_renderer =
-        egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, Some(DEPTH_FORMAT), 1);
+        egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, Some(DEPTH_FORMAT), 4);
     let egui_callback_resources = &mut egui_renderer.callback_resources;
     egui_callback_resources.insert(setup.start_instant);
     egui_callback_resources.insert(setup.resource_man.clone());

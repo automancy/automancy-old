@@ -464,7 +464,7 @@ pub fn init_gpu_resources(
                 bias: Default::default(),
             }),
             multisample: MultisampleState {
-                count: 1,
+                count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -487,8 +487,6 @@ pub fn init_gpu_resources(
     let egui_resources = EguiResources {
         texture: None,
         depth_texture: None,
-        antialiasing_bind_group: None,
-        antialiasing_texture: None,
     };
 
     let combine_bind_group_layout =
@@ -591,22 +589,6 @@ pub fn init_gpu_resources(
                 },
                 BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Depth,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 3,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
@@ -770,6 +752,8 @@ pub fn init_gpu_resources(
         normal_texture: None,
         depth_texture: None,
         model_depth_texture: None,
+        multisampling_texture: None,
+        multisampling_depth_texture: None,
 
         filtering_sampler,
         non_filtering_sampler,
@@ -983,8 +967,6 @@ fn make_antialiasing_bind_group(
     bind_group_layout: &BindGroupLayout,
     frame_texture: &TextureView,
     frame_sampler: &Sampler,
-    depth_texture: &TextureView,
-    depth_sampler: &Sampler,
 ) -> BindGroup {
     device.create_bind_group(&BindGroupDescriptor {
         layout: bind_group_layout,
@@ -996,14 +978,6 @@ fn make_antialiasing_bind_group(
             BindGroupEntry {
                 binding: 1,
                 resource: BindingResource::Sampler(frame_sampler),
-            },
-            BindGroupEntry {
-                binding: 2,
-                resource: BindingResource::TextureView(depth_texture),
-            },
-            BindGroupEntry {
-                binding: 3,
-                resource: BindingResource::Sampler(depth_sampler),
             },
         ],
         label: Some("antialiasing_bind_group"),
@@ -1051,8 +1025,6 @@ impl GameResources {
             game_descriptor.antialiasing_bind_group_layout,
             shared_descriptor.game_texture,
             shared_descriptor.filtering_sampler,
-            shared_descriptor.depth_texture,
-            shared_descriptor.filtering_sampler,
         ));
         self.antialiasing_texture = Some(create_texture_and_view(
             device,
@@ -1099,20 +1071,10 @@ pub struct EguiResources {
     texture: Option<(Texture, TextureView)>,
     #[getters(get)]
     depth_texture: Option<(Texture, TextureView)>,
-    #[getters(get)]
-    antialiasing_bind_group: Option<BindGroup>,
-    #[getters(get)]
-    antialiasing_texture: Option<(Texture, TextureView)>,
 }
 
 impl EguiResources {
-    pub fn create(
-        &mut self,
-        device: &Device,
-        config: &SurfaceConfiguration,
-        shared_descriptor: &SharedDescriptor,
-        game_descriptor: &GameDescriptor,
-    ) {
+    pub fn create(&mut self, device: &Device, config: &SurfaceConfiguration) {
         self.texture = Some(create_texture_and_view(
             device,
             &TextureDescriptor {
@@ -1143,31 +1105,6 @@ impl EguiResources {
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: DEPTH_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        ));
-        self.antialiasing_bind_group = Some(make_antialiasing_bind_group(
-            device,
-            game_descriptor.antialiasing_bind_group_layout,
-            &self.texture().1,
-            shared_descriptor.filtering_sampler,
-            &self.depth_texture().1,
-            shared_descriptor.filtering_sampler,
-        ));
-        self.antialiasing_texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: Extent3d {
-                    width: config.width,
-                    height: config.height,
-                    ..Default::default()
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: config.format,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
@@ -1262,6 +1199,179 @@ impl IntermediateResources {
                 },
             ],
         }));
+    }
+}
+
+pub struct GlobalBuffers {
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
+}
+
+#[derive(OptionGetter)]
+pub struct SharedResources {
+    pub game_shader: ShaderModule,
+    pub combine_shader: ShaderModule,
+    pub intermediate_shader: ShaderModule,
+
+    #[getters(get)]
+    game_texture: Option<(Texture, TextureView)>,
+    #[getters(get)]
+    normal_texture: Option<(Texture, TextureView)>,
+    #[getters(get)]
+    depth_texture: Option<(Texture, TextureView)>,
+    #[getters(get)]
+    model_depth_texture: Option<(Texture, TextureView)>,
+    #[getters(get)]
+    multisampling_texture: Option<(Texture, TextureView)>,
+    #[getters(get)]
+    multisampling_depth_texture: Option<(Texture, TextureView)>,
+
+    pub filtering_sampler: Sampler,
+    pub non_filtering_sampler: Sampler,
+}
+
+pub struct RenderResources {
+    pub game_resources: GameResources,
+    pub in_world_item_resources: InWorldItemResources,
+    pub egui_resources: EguiResources,
+
+    pub first_combine_resources: CombineResources,
+
+    pub antialiasing_resources: AntialiasingResources,
+    pub intermediate_resources: IntermediateResources,
+}
+
+impl SharedResources {
+    pub fn create(
+        &mut self,
+        device: &Device,
+        config: &SurfaceConfiguration,
+        render_resources: &mut RenderResources,
+    ) {
+        let extent = Extent3d {
+            width: config.width,
+            height: config.height,
+            depth_or_array_layers: 1,
+        };
+
+        self.game_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: config.format,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+        self.normal_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba32Float,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+        self.depth_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: DEPTH_FORMAT,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+        self.model_depth_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+        self.multisampling_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 4,
+                dimension: TextureDimension::D2,
+                format: config.format,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+        self.multisampling_depth_texture = Some(create_texture_and_view(
+            device,
+            &TextureDescriptor {
+                label: None,
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 4,
+                dimension: TextureDimension::D2,
+                format: DEPTH_FORMAT,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        ));
+
+        let shared_descriptor = SharedDescriptor {
+            filtering_sampler: &self.filtering_sampler,
+            non_filtering_sampler: &self.non_filtering_sampler,
+            game_texture: &self.game_texture().1,
+            normal_texture: &self.normal_texture().1,
+            depth_texture: &self.depth_texture().1,
+            model_depth_texture: &self.model_depth_texture().1,
+        };
+
+        render_resources
+            .antialiasing_resources
+            .create(device, config);
+
+        let game_descriptor = GameDescriptor {
+            antialiasing_bind_group_layout: &render_resources
+                .antialiasing_resources
+                .bind_group_layout,
+        };
+
+        render_resources.game_resources.create(
+            device,
+            config,
+            &shared_descriptor,
+            &game_descriptor,
+        );
+        render_resources.egui_resources.create(device, config);
+
+        render_resources.first_combine_resources.create(
+            device,
+            config,
+            &shared_descriptor,
+            &render_resources.game_resources.antialiasing_texture().1,
+            &render_resources.egui_resources.texture().1,
+        );
+        render_resources.intermediate_resources.create(
+            device,
+            &shared_descriptor,
+            &render_resources.first_combine_resources.texture().1,
+        );
     }
 }
 
@@ -1382,164 +1492,5 @@ impl<'a> Gpu<'a> {
             surface,
             config,
         }
-    }
-}
-
-pub struct GlobalBuffers {
-    pub vertex_buffer: Buffer,
-    pub index_buffer: Buffer,
-}
-
-pub struct SharedResources {
-    pub game_shader: ShaderModule,
-    pub combine_shader: ShaderModule,
-    pub intermediate_shader: ShaderModule,
-
-    game_texture: Option<(Texture, TextureView)>,
-    normal_texture: Option<(Texture, TextureView)>,
-    depth_texture: Option<(Texture, TextureView)>,
-    model_depth_texture: Option<(Texture, TextureView)>,
-
-    pub filtering_sampler: Sampler,
-    pub non_filtering_sampler: Sampler,
-}
-
-pub struct RenderResources {
-    pub game_resources: GameResources,
-    pub in_world_item_resources: InWorldItemResources,
-    pub egui_resources: EguiResources,
-
-    pub first_combine_resources: CombineResources,
-
-    pub antialiasing_resources: AntialiasingResources,
-    pub intermediate_resources: IntermediateResources,
-}
-
-impl SharedResources {
-    pub fn game_texture(&self) -> &(Texture, TextureView) {
-        self.game_texture.as_ref().unwrap()
-    }
-
-    pub fn normal_texture(&self) -> &(Texture, TextureView) {
-        self.normal_texture.as_ref().unwrap()
-    }
-
-    pub fn depth_texture(&self) -> &(Texture, TextureView) {
-        self.depth_texture.as_ref().unwrap()
-    }
-
-    pub fn model_depth_texture(&self) -> &(Texture, TextureView) {
-        self.model_depth_texture.as_ref().unwrap()
-    }
-
-    pub fn create(
-        &mut self,
-        device: &Device,
-        config: &SurfaceConfiguration,
-        render_resources: &mut RenderResources,
-    ) {
-        let extent = Extent3d {
-            width: config.width,
-            height: config.height,
-            depth_or_array_layers: 1,
-        };
-
-        self.game_texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: extent,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: config.format,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        ));
-        self.normal_texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: extent,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba32Float,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        ));
-        self.depth_texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: extent,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: DEPTH_FORMAT,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        ));
-        self.model_depth_texture = Some(create_texture_and_view(
-            device,
-            &TextureDescriptor {
-                label: None,
-                size: extent,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R32Float,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        ));
-
-        let shared_descriptor = SharedDescriptor {
-            filtering_sampler: &self.filtering_sampler,
-            non_filtering_sampler: &self.non_filtering_sampler,
-            game_texture: &self.game_texture().1,
-            normal_texture: &self.normal_texture().1,
-            depth_texture: &self.depth_texture().1,
-            model_depth_texture: &self.model_depth_texture().1,
-        };
-
-        render_resources
-            .antialiasing_resources
-            .create(device, config);
-
-        let game_descriptor = GameDescriptor {
-            antialiasing_bind_group_layout: &render_resources
-                .antialiasing_resources
-                .bind_group_layout,
-        };
-
-        render_resources.game_resources.create(
-            device,
-            config,
-            &shared_descriptor,
-            &game_descriptor,
-        );
-        render_resources.egui_resources.create(
-            device,
-            config,
-            &shared_descriptor,
-            &game_descriptor,
-        );
-
-        render_resources.first_combine_resources.create(
-            device,
-            config,
-            &shared_descriptor,
-            &render_resources.game_resources.antialiasing_texture().1,
-            &render_resources.egui_resources.antialiasing_texture().1,
-        );
-        render_resources.intermediate_resources.create(
-            device,
-            &shared_descriptor,
-            &render_resources.first_combine_resources.texture().1,
-        );
     }
 }
