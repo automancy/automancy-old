@@ -222,10 +222,7 @@ impl RawInstanceData {
             world_matrix: world_matrix.to_cols_array_2d(),
         };
 
-        if Some(&matrix_data) != buffer.last() {
-            buffer.push(matrix_data);
-        }
-        debug_assert!(!buffer.is_empty());
+        buffer.push(matrix_data);
         let index = buffer.len() - 1;
 
         Self {

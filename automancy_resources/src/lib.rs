@@ -9,6 +9,7 @@ use std::time::SystemTime;
 
 pub use chrono;
 use chrono::{DateTime, Local};
+use hashbrown::HashMap;
 pub use kira;
 use kira::sound::static_sound::StaticSoundData;
 use kira::track::TrackHandle;
@@ -18,7 +19,6 @@ use walkdir::WalkDir;
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::flexstr::SharedStr;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id;
 use automancy_defs::id::{id_static, Id, Interner};
 use automancy_defs::rendering::{Animation, Model};

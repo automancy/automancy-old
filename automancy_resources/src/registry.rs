@@ -1,8 +1,8 @@
 use automancy_defs::graph::graph::NodeIndex;
 use automancy_defs::graph::prelude::StableDiGraph;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_macros::IdReg;
+use hashbrown::HashMap;
 
 use crate::data::item::Item;
 use crate::types::category::Category;

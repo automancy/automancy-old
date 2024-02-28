@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use egui::{LayerId, Rect};
 use egui_wgpu::wgpu::SurfaceError;
 use fuse_rust::Fuse;
+use hashbrown::{HashMap, HashSet};
 use ractor::ActorRef;
 use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Mutex};
@@ -17,7 +18,6 @@ use automancy_defs::colors::ColorAdj;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::glam::{dvec2, vec3};
 use automancy_defs::gui::Gui;
-use automancy_defs::hashbrown::{HashMap, HashSet};
 use automancy_defs::id::Id;
 use automancy_defs::math::{Float, Matrix4, FAR, HEX_GRID_LAYOUT};
 use automancy_defs::rendering::{make_line, InstanceData};
@@ -31,8 +31,8 @@ use crate::game::{GameMsg, PlaceTileResponse};
 use crate::gpu::AnimationMap;
 use crate::gui;
 use crate::gui::{
-    error, info, menu, player, popup, tile_config, tile_selection, GameEguiCallback, GuiState,
-    PopupState, Screen, TextField,
+    debug, error, info, menu, player, popup, tile_config, tile_selection, GameEguiCallback,
+    GuiState, PopupState, Screen, TextField,
 };
 use crate::input;
 use crate::input::KeyActions;
@@ -219,13 +219,13 @@ fn render(
         gui.context
             .begin_frame(gui.state.take_egui_input(renderer.gpu.window));
 
-        #[cfg(debug_assertions)]
         if setup.input_handler.key_active(KeyActions::Debug) {
-            use crate::gui::debug;
+            #[cfg(debug_assertions)]
             gui.context.set_debug_on_hover(true);
 
             debug::debugger(runtime, setup, loop_store, renderer, &gui.context);
         } else {
+            #[cfg(debug_assertions)]
             gui.context.set_debug_on_hover(false);
         }
 

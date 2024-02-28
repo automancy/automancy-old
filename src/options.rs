@@ -2,11 +2,11 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Write};
 
 use enum_ordinalize::Ordinalize;
+use hashbrown::HashMap;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use winit::keyboard::Key;
 
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::log;
 use automancy_defs::math::{Double, Float};
 

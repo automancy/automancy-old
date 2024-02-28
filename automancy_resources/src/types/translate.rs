@@ -5,9 +5,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use automancy_defs::flexstr::{SharedStr, ToSharedStr};
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw};
 use automancy_defs::log;
+use hashbrown::HashMap;
 
 use crate::{ResourceManager, RON_EXT};
 

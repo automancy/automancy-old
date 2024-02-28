@@ -1,9 +1,9 @@
 use std::time::Instant;
 
 use egui::{Context, Rect, ScrollArea, Ui, Window};
+use hashbrown::HashMap;
 
 use automancy_defs::glam::dvec3;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::math;
 use automancy_defs::rendering::InstanceData;
 use automancy_resources::data::item::Item;

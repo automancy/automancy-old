@@ -14,6 +14,7 @@ use egui_wgpu::wgpu::{
     COPY_BUFFER_ALIGNMENT, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
 use egui_wgpu::ScreenDescriptor;
+use hashbrown::HashMap;
 use image::{EncodableLayout, RgbaImage};
 use num::PrimInt;
 use tokio::runtime::Runtime;
@@ -23,7 +24,6 @@ use wgpu::StoreOp;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::glam::vec3;
 use automancy_defs::gui::Gui;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::{
     direction_to_angle, lerp_coords_to_pixel, Double, Float, Matrix4, FAR, HEX_GRID_LAYOUT, SQRT_3,

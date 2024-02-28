@@ -3,12 +3,9 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::sync::Arc;
 use std::time::SystemTime;
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    path::PathBuf,
-};
+use std::{fs, path::PathBuf};
 
+use hashbrown::{HashMap, HashSet};
 use lazy_static::lazy_static;
 use ractor::ActorRef;
 use ron::error::SpannedResult;

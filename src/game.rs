@@ -4,13 +4,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use arraydeque::{ArrayDeque, Wrapping};
+use hashbrown::HashMap;
 use ractor::rpc::CallResult;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use rayon::prelude::*;
 use tokio::sync::Mutex;
 
 use automancy_defs::coord::TileCoord;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::hexx::HexBounds;
 use automancy_defs::id::Id;
 use automancy_defs::log;

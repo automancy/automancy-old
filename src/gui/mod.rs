@@ -8,12 +8,12 @@ use egui::{
 use egui_wgpu::{CallbackResources, CallbackTrait, ScreenDescriptor};
 use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use wgpu::util::DrawIndexedIndirectArgs;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
 use automancy_defs::glam::vec3;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::{Float, Matrix4};
 use automancy_defs::rendering::InstanceData;
@@ -24,9 +24,7 @@ use crate::gpu;
 use crate::gpu::{AnimationMap, GlobalBuffers, GuiResources};
 use crate::renderer::try_add_animation;
 
-#[cfg(debug_assertions)]
 pub mod debug;
-
 pub mod error;
 pub mod info;
 pub mod item;

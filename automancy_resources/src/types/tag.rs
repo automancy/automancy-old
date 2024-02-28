@@ -4,9 +4,9 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use automancy_defs::hashbrown::HashSet;
 use automancy_defs::id::{Id, IdRaw};
 use automancy_defs::log;
+use hashbrown::HashSet;
 
 use crate::registry::Registry;
 use crate::{load_recursively, ResourceManager, RON_EXT};

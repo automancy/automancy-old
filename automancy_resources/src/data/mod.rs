@@ -7,8 +7,8 @@ use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 
 use automancy_defs::coord::TileCoord;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw, Interner};
+use hashbrown::HashMap;
 
 use crate::data::inventory::{Inventory, InventoryRaw};
 use crate::data::stack::ItemAmount;

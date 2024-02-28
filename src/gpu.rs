@@ -1,3 +1,4 @@
+use core::slice;
 use std::mem;
 use std::rc::Rc;
 
@@ -15,13 +16,13 @@ use egui_wgpu::wgpu::{
     TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
     TextureViewDimension, VertexState,
 };
+use hashbrown::HashMap;
 use wgpu::util::DrawIndexedIndirectArgs;
 use wgpu::{AdapterInfo, Face, Surface};
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
 use automancy_defs::bytemuck;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::Id;
 use automancy_defs::math::Matrix4;
 use automancy_defs::rendering::{GameUBO, InstanceData, MatrixData, RawInstanceData, Vertex};
@@ -796,7 +797,7 @@ pub fn init_gpu_resources(
     )
 }
 
-pub fn compile_instances<T: Clone>(
+pub fn compile_instances<T: Clone + Send>(
     resource_man: &ResourceManager,
     instances: &[(InstanceData, Id, T)],
     animation_map: &AnimationMap,
@@ -808,10 +809,10 @@ pub fn compile_instances<T: Clone>(
     let mut matrix_data = vec![];
 
     #[cfg(debug_assertions)]
-    let mut seen = automancy_defs::hashbrown::HashSet::new();
+    let mut seen = hashbrown::HashSet::new();
 
-    instances.binary_group_by_key(|v| v.1).for_each(|v| {
-        let id = v[0].1;
+    instances.binary_group_by_key(|v| v.1).for_each(|group| {
+        let id = group[0].1;
 
         #[cfg(debug_assertions)]
         {
@@ -823,7 +824,11 @@ pub fn compile_instances<T: Clone>(
 
         let models = &resource_man.all_models[&id].0;
 
-        for (instance, _, extra) in v.iter() {
+        let vec = raw_instances
+            .entry(id)
+            .or_insert_with(|| Vec::with_capacity(group.len()));
+
+        for (instance, _, extra) in group.iter() {
             for model in models.values() {
                 let mut instance = *instance;
 
@@ -836,7 +841,7 @@ pub fn compile_instances<T: Clone>(
                 }
                 instance = instance.add_model_matrix(matrix);
 
-                raw_instances.entry(id).or_insert_with(Vec::new).push((
+                vec.push((
                     model.index,
                     RawInstanceData::from_instance(instance, &mut matrix_data),
                     extra.clone(),
@@ -852,7 +857,7 @@ pub fn compile_instances<T: Clone>(
     (raw_instances, matrix_data)
 }
 
-pub fn indirect_instance<T: Clone>(
+pub fn indirect_instance<T: Clone + Send + Sync>(
     resource_man: &ResourceManager,
     instances: &[(InstanceData, Id, T)],
     group: bool,
@@ -866,39 +871,24 @@ pub fn indirect_instance<T: Clone>(
     let (compiled_instances, matrix_data) =
         compile_instances(resource_man, instances, animation_map);
 
-    let mut base_instance_counter = 0;
-    let mut indirect_commands = HashMap::new();
-    let mut draw_count = 0;
+    let (_, draw_count, commands) = compiled_instances.iter().fold(
+        (0, 0, HashMap::new()),
+        |(mut base_instance_counter, mut draw_count, mut commands), (id, instances)| {
+            let mut a = instances.binary_group_by_key(|v| v.0);
+            let mut b = instances.iter().map(slice::from_ref);
 
-    compiled_instances.iter().for_each(|(id, instances)| {
-        if group {
-            instances
-                .exponential_group_by_key(|v| v.0)
-                .for_each(|instances| {
-                    let size = instances.len() as u32;
-                    let index_range = resource_man.all_index_ranges[id][&instances[0].0];
+            let vec = commands
+                .entry(*id)
+                .or_insert_with(|| Vec::with_capacity(instances.len()));
 
-                    let command = DrawIndexedIndirectArgs {
-                        first_index: index_range.offset,
-                        index_count: index_range.size,
-                        first_instance: base_instance_counter,
-                        instance_count: size,
-                        base_vertex: 0,
-                    };
+            for instances in if group {
+                &mut a as &mut dyn Iterator<Item = &[(usize, RawInstanceData, T)]>
+            } else {
+                &mut b as &mut dyn Iterator<Item = &[(usize, RawInstanceData, T)]>
+            } {
+                let size = instances.len() as u32;
 
-                    base_instance_counter += size;
-                    draw_count += 1;
-
-                    indirect_commands
-                        .entry(*id)
-                        .or_insert_with(Vec::new)
-                        .push((command, instances[0].2.clone()));
-                });
-        } else {
-            //TODO dedupe these code
-            instances.iter().for_each(|instance| {
-                let size = 1;
-                let index_range = resource_man.all_index_ranges[id][&instance.0];
+                let index_range = resource_man.all_index_ranges[id][&instances[0].0];
 
                 let command = DrawIndexedIndirectArgs {
                     first_index: index_range.offset,
@@ -911,25 +901,19 @@ pub fn indirect_instance<T: Clone>(
                 base_instance_counter += size;
                 draw_count += 1;
 
-                indirect_commands
-                    .entry(*id)
-                    .or_insert_with(Vec::new)
-                    .push((command, instance.2.clone()));
-            });
-        }
-    });
+                vec.push((command, instances[0].2.clone()));
+            }
 
-    let compiled_instances = compiled_instances
+            (base_instance_counter, draw_count, commands)
+        },
+    );
+
+    let instances = compiled_instances
         .into_iter()
         .flat_map(|v| v.1.into_iter().map(|v| v.1))
-        .collect::<Vec<_>>();
+        .collect::<Vec<RawInstanceData>>();
 
-    (
-        compiled_instances,
-        indirect_commands,
-        draw_count,
-        matrix_data,
-    )
+    (instances, commands, draw_count, matrix_data)
 }
 
 pub fn create_or_write_buffer(

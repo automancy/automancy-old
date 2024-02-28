@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 
 use automancy_defs::glam::vec3;
 use automancy_defs::gltf::animation::util::ReadOutputs;
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw};
 use automancy_defs::math::{Matrix4, Quaternion};
 use automancy_defs::rendering::{Animation, Model, Vertex};
 use automancy_defs::{gltf, log};
+use hashbrown::HashMap;
 
 use crate::data::item::Item;
 use crate::{load_recursively, ResourceManager, RON_EXT};

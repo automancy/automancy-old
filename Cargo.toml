@@ -25,6 +25,7 @@ opt-level = 3
 
 [profile.release]
 lto = "off"
+debug = true
 
 [profile.release-bin]
 inherits = "release"
@@ -61,6 +62,7 @@ thiserror = "1.0.43"
 enum-ordinalize = "4.1.0"
 ordered-float = "4.2.0"
 walkdir = "2.3.3"
+hashbrown = { version = "0.14.3", features = ["serde", "rayon"] }
 
 rhai = { version = "1.16.2", features = [
     "sync",
@@ -93,6 +95,7 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 enum-ordinalize = { workspace = true }
 walkdir = { workspace = true }
+hashbrown = { workspace = true }
 
 rhai = { workspace = true }
 

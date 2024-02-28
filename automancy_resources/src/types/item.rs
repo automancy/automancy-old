@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use automancy_defs::hashbrown::HashMap;
 use automancy_defs::id::{Id, IdRaw};
 use automancy_defs::log;
+use hashbrown::HashMap;
 
 use crate::data::item::{item_match, Item};
 use crate::{load_recursively, ResourceManager, RON_EXT};
