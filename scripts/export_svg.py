@@ -29,7 +29,7 @@ def main():
         new_obj = bpy.data.objects.new(obj.name, mesh)
 
         new_obj.matrix_world = obj.matrix_world
-        new_obj.delta_location.z = (ids[obj.name] / total) / 64.0
+        new_obj.delta_location.z = (ids[obj.name] / total) / 32.0 + 0.01
         #alpha = styles[obj.name].get('fill-opacity')
         #if alpha:
         #    new_obj.active_material.diffuse_color[3] = float(alpha)

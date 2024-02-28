@@ -1,5 +1,8 @@
+use std::time::SystemTime;
+
 use egui::{Context, Window};
 use ron::ser::PrettyConfig;
+use tokio::runtime::Runtime;
 
 use crate::event::EventLoopStorage;
 use crate::gui::default_frame;
@@ -8,6 +11,7 @@ use crate::setup::GameSetup;
 
 /// Draws the debug menu (F3).
 pub fn debugger(
+    runtime: &Runtime,
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
     renderer: &Renderer,
@@ -25,12 +29,11 @@ pub fn debugger(
     let audio = resource_man.audio.len();
     let meshes = resource_man.all_models.len();
 
-    let lock = loop_store.map_info_cache.blocking_lock();
-    let Some((info, map_name)) = lock.as_ref() else {
+    let Some((info, map_name)) = &loop_store.map_info else {
         return;
     };
 
-    let tile_count = info.tile_count;
+    let map_info = runtime.block_on(info.lock()).clone();
 
     Window::new(
         setup.resource_man.translates.gui[&resource_man.registry.gui_ids.debug_menu].as_str(),
@@ -40,11 +43,11 @@ pub fn debugger(
     .frame(default_frame())
     .show(context, |ui| {
         ui.label(format!("FPS: {fps:.1}"));
-        ui.label(format!("WGPU: {}", ron::ser::to_string_pretty(&renderer.gpu.adapter_info, PrettyConfig::default()).unwrap_or("could not format info".to_string())));
+        ui.label(format!("WGPU: {}", ron::ser::to_string_pretty(&renderer.gpu.adapter_info, PrettyConfig::default()).unwrap_or("could not format wgpu info".to_string())));
         ui.separator();
         ui.label(format!(
             "ResourceMan: Tiles={reg_tiles} Items={reg_items} Tags={tags} Functions={functions} Scripts={scripts} Audio={audio} Meshes={meshes}"
         ));
-        ui.label(format!("Map \"{map_name}\": Tiles={tile_count}"))
+        ui.label(format!("Map \"{map_name}\" ({:?}): {}", map_info.save_time.unwrap_or(SystemTime::UNIX_EPOCH), ron::ser::to_string_pretty(&map_info.data.to_raw(&setup.resource_man.interner), PrettyConfig::default()).unwrap_or("could not format map info".to_string())));
     });
 }

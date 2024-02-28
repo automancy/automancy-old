@@ -9,7 +9,7 @@ use egui_wgpu::wgpu::SurfaceError;
 use fuse_rust::Fuse;
 use ractor::ActorRef;
 use tokio::runtime::Runtime;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{oneshot, Mutex};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 
@@ -66,11 +66,10 @@ pub struct EventLoopStorage {
 
     pub take_item_animations: HashMap<Item, VecDeque<(Instant, Rect)>>,
 
+    pub map_info: Option<(Arc<Mutex<MapInfo>>, String)>,
+
     pub config_open_cache: Arc<Mutex<Option<(Id, ActorRef<TileEntityMsg>)>>>,
     pub config_open_updating: Arc<AtomicBool>,
-
-    pub map_info_cache: Arc<Mutex<Option<(MapInfo, String)>>>,
-    pub map_info_updating: Arc<AtomicBool>,
 
     pub pointing_cache: Arc<Mutex<Option<(Id, ActorRef<TileEntityMsg>)>>>,
     pub pointing_updating: Arc<AtomicBool>,
@@ -93,11 +92,10 @@ impl Default for EventLoopStorage {
             initial_cursor_position: None,
             take_item_animations: Default::default(),
 
+            map_info: None,
+
             config_open_cache: Arc::new(Default::default()),
             config_open_updating: Arc::new(Default::default()),
-
-            map_info_cache: Arc::new(Default::default()),
-            map_info_updating: Arc::new(Default::default()),
 
             pointing_cache: Arc::new(Default::default()),
             pointing_updating: Arc::new(Default::default()),
@@ -115,15 +113,7 @@ pub async fn shutdown_graceful(
 ) -> anyhow::Result<bool> {
     setup.game.send_message(GameMsg::StopTicking)?;
 
-    setup
-        .game
-        .call(
-            |reply| GameMsg::SaveMap(setup.resource_man.clone(), reply),
-            None,
-        )
-        .await
-        .unwrap();
-
+    setup.game.call(GameMsg::SaveMap, None).await.unwrap();
     setup.game.stop(Some("Game closed".to_string()));
 
     setup.game_handle.take().unwrap().await?;
@@ -166,8 +156,6 @@ fn render(
 
     let camera_pos_float = setup.camera.get_pos().as_vec3();
 
-    let (selection_send, mut selection_recv) = mpsc::channel(1);
-
     loop_store.frame_start = Instant::now();
 
     {
@@ -197,22 +185,6 @@ fn render(
                     updating.store(false, Ordering::Relaxed);
                 });
             }
-        }
-
-        if !loop_store.map_info_updating.load(Ordering::Relaxed) {
-            let cache = loop_store.map_info_cache.clone();
-            let updating = loop_store.map_info_updating.clone();
-            let game = setup.game.clone();
-
-            updating.store(true, Ordering::Relaxed);
-
-            runtime.spawn(async move {
-                let map_info = game.call(GameMsg::GetMapInfo, None).await.unwrap().unwrap();
-
-                *cache.lock().await = Some(map_info);
-
-                updating.store(false, Ordering::Relaxed);
-            });
         }
 
         if !loop_store.pointing_updating.load(Ordering::Relaxed) {
@@ -252,7 +224,7 @@ fn render(
             use crate::gui::debug;
             gui.context.set_debug_on_hover(true);
 
-            debug::debugger(setup, loop_store, renderer, &gui.context);
+            debug::debugger(runtime, setup, loop_store, renderer, &gui.context);
         } else {
             gui.context.set_debug_on_hover(false);
         }
@@ -261,43 +233,45 @@ fn render(
             match loop_store.gui_state.screen {
                 Screen::Ingame => {
                     if !setup.input_handler.key_active(KeyActions::HideGui) {
-                        let mut game_data = runtime
-                            .block_on(setup.game.call(GameMsg::TakeDataMap, None))
-                            .unwrap()
-                            .unwrap();
+                        if let Some(map_info) = loop_store.map_info.as_ref().map(|v| v.0.clone()) {
+                            let mut lock = map_info.blocking_lock();
+                            let game_data = &mut lock.data;
 
-                        if setup.input_handler.key_active(KeyActions::Player) {
-                            player::player(setup, loop_store, &gui.context, &game_data);
-                        }
+                            if setup.input_handler.key_active(KeyActions::Player) {
+                                player::player(setup, loop_store, &gui.context, game_data);
+                            }
 
-                        // tile_info
-                        info::info(runtime, setup, loop_store, &gui.context);
+                            // tile_info
+                            info::info(runtime, setup, loop_store, &gui.context);
 
-                        // tile_config
-                        tile_config::tile_config(
-                            runtime,
-                            setup,
-                            loop_store,
-                            &gui.context,
-                            &mut game_data,
-                        );
+                            // tile_config
+                            tile_config::tile_config(
+                                runtime,
+                                setup,
+                                loop_store,
+                                &gui.context,
+                                game_data,
+                            );
 
-                        // tile_selections
-                        tile_selection::tile_selections(
-                            setup,
-                            loop_store,
-                            &gui.context,
-                            selection_send,
-                            &mut game_data,
-                        );
+                            let (selection_send, selection_recv) = oneshot::channel();
 
-                        if let Some(id) = selection_recv.blocking_recv() {
-                            loop_store.already_placed_at = None;
+                            // tile_selections
+                            tile_selection::tile_selections(
+                                setup,
+                                loop_store,
+                                &gui.context,
+                                selection_send,
+                                game_data,
+                            );
 
-                            if loop_store.selected_tile_id == Some(id) {
-                                loop_store.selected_tile_id = None;
-                            } else {
-                                loop_store.selected_tile_id = Some(id);
+                            if let Ok(id) = selection_recv.blocking_recv() {
+                                loop_store.already_placed_at = None;
+
+                                if loop_store.selected_tile_id == Some(id) {
+                                    loop_store.selected_tile_id = None;
+                                } else {
+                                    loop_store.selected_tile_id = Some(id);
+                                }
                             }
                         }
 
@@ -353,18 +327,13 @@ fn render(
                                 setup.resource_man.registry.model_ids.cube1x1,
                             ));
                         }
-
-                        setup
-                            .game
-                            .send_message(GameMsg::SetDataMap(game_data))
-                            .unwrap();
                     }
                 }
                 Screen::MainMenu => {
                     result = menu::main_menu(runtime, setup, &gui.context, target, loop_store)
                 }
                 Screen::MapLoad => {
-                    menu::map_menu(setup, &gui.context, loop_store);
+                    menu::map_menu(runtime, setup, &gui.context, loop_store);
                 }
                 Screen::Options => {
                     menu::options_menu(setup, &gui.context, loop_store);
@@ -377,7 +346,7 @@ fn render(
         }
         match loop_store.gui_state.popup.clone() {
             PopupState::None => {}
-            PopupState::MapCreate => popup::map_create_popup(setup, gui, loop_store),
+            PopupState::MapCreate => popup::map_create_popup(runtime, setup, gui, loop_store),
             PopupState::MapDeleteConfirmation(map_name) => {
                 popup::map_delete_popup(setup, gui, loop_store, &map_name);
             }
@@ -578,10 +547,7 @@ pub fn on_event(
                     .switch_screen_when(&|s| s.screen == Screen::Ingame, Screen::Paused)
                 {
                     runtime
-                        .block_on(setup.game.call(
-                            |reply| GameMsg::SaveMap(setup.resource_man.clone(), reply),
-                            None,
-                        ))?
+                        .block_on(setup.game.call(GameMsg::SaveMap, None))?
                         .unwrap();
                 } else {
                     loop_store

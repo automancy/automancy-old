@@ -21,18 +21,19 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Fullscreen, Icon, WindowBuilder};
 
 use automancy::camera::Camera;
+use automancy::event::{on_event, EventLoopStorage};
+use automancy::game::load_map;
 use automancy::gpu::{init_gpu_resources, Gpu, DEPTH_FORMAT};
+use automancy::map::MAIN_MENU;
+use automancy::renderer::Renderer;
+use automancy::setup::GameSetup;
+use automancy::LOGO;
 use automancy_defs::flexstr::ToSharedStr;
 use automancy_defs::gui::init_gui;
 use automancy_defs::gui::set_font;
 use automancy_defs::math::Double;
 use automancy_defs::{log, window};
 use automancy_resources::kira::tween::Tween;
-
-use automancy::event::{on_event, EventLoopStorage};
-use automancy::renderer::Renderer;
-use automancy::setup::GameSetup;
-use automancy::LOGO;
 
 /// Gets the game icon.
 fn get_icon() -> Icon {
@@ -200,6 +201,11 @@ fn main() -> eyre::Result<()> {
     );
     let mut loop_store = EventLoopStorage::default();
     let mut closed = false;
+
+    // load the main menu
+    runtime
+        .block_on(load_map(&setup, &mut loop_store, MAIN_MENU.to_string()))
+        .unwrap();
 
     event_loop.run(move |event, target| {
         if closed {

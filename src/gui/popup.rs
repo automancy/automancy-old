@@ -1,12 +1,13 @@
 use std::fs;
 
 use egui::{vec2, Align2, Window};
+use tokio::runtime::Runtime;
 
 use automancy_defs::gui::Gui;
 use automancy_defs::log;
 
 use crate::event::EventLoopStorage;
-use crate::game::GameMsg;
+use crate::game::load_map;
 use crate::gui::{default_frame, PopupState, Screen, TextField};
 use crate::map::Map;
 use crate::setup::GameSetup;
@@ -90,7 +91,12 @@ pub fn map_delete_popup(
 }
 
 /// Draws the map creation popup.
-pub fn map_create_popup(setup: &GameSetup, gui: &mut Gui, loop_store: &mut EventLoopStorage) {
+pub fn map_create_popup(
+    runtime: &Runtime,
+    setup: &GameSetup,
+    gui: &mut Gui,
+    loop_store: &mut EventLoopStorage,
+) {
     Window::new(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.create_map].as_str(),
     )
@@ -118,10 +124,9 @@ pub fn map_create_popup(setup: &GameSetup, gui: &mut Gui, loop_store: &mut Event
                     .get(TextField::MapName)
                     .clone(),
             );
-            setup
-                .game
-                .send_message(GameMsg::LoadMap(setup.resource_man.clone(), name))
-                .unwrap();
+
+            runtime.block_on(load_map(setup, loop_store, name)).unwrap();
+
             loop_store
                 .gui_state
                 .text_field

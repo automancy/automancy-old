@@ -5,7 +5,7 @@ use egui::scroll_area::ScrollBarVisibility;
 use egui::{
     vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TopBottomPanel, Ui,
 };
-use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 
 use automancy_defs::glam::{dvec3, vec3};
 use automancy_defs::id::Id;
@@ -49,7 +49,7 @@ fn has_category_item(setup: &GameSetup, id: Id, game_data: &mut DataMap) -> bool
 fn draw_tile_selection(
     setup: &GameSetup,
     ui: &mut Ui,
-    selection_send: &mpsc::Sender<Id>,
+    selection_send: &mut Option<oneshot::Sender<Id>>,
     game_data: &mut DataMap,
     current_category: Option<Id>,
 ) {
@@ -127,7 +127,9 @@ fn draw_tile_selection(
         };
 
         if response.clicked() {
-            selection_send.try_send(*id).unwrap();
+            if let Some(send) = selection_send.take() {
+                send.send(*id).unwrap();
+            }
         }
 
         let rotate = Matrix4::from_rotation_x(tile_hover_z_angle(ui, &response));
@@ -159,7 +161,7 @@ pub fn tile_selections(
     setup: &GameSetup,
     loop_store: &mut EventLoopStorage,
     context: &Context,
-    selection_send: mpsc::Sender<Id>,
+    selection_send: oneshot::Sender<Id>,
     game_data: &mut DataMap,
 ) {
     let projection = DMatrix4::perspective_lh(FRAC_PI_4, 1.0, z_near(), z_far())
@@ -185,7 +187,7 @@ pub fn tile_selections(
                         draw_tile_selection(
                             setup,
                             ui,
-                            &selection_send,
+                            &mut Some(selection_send),
                             game_data,
                             loop_store.gui_state.tile_selection_category,
                         );

@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::mem;
 use std::ops::Div;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -8,7 +7,7 @@ use arraydeque::{ArrayDeque, Wrapping};
 use ractor::rpc::CallResult;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use rayon::prelude::*;
-use tokio::time::sleep;
+use tokio::sync::Mutex;
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::hashbrown::HashMap;
@@ -21,8 +20,10 @@ use automancy_resources::data::stack::ItemStack;
 use automancy_resources::data::{Data, DataMap};
 use automancy_resources::ResourceManager;
 
+use crate::event::EventLoopStorage;
 use crate::game::GameMsg::*;
 use crate::map::{Map, MapInfo, TileEntities};
+use crate::setup::GameSetup;
 use crate::tile_entity::{TileEntity, TileEntityMsg};
 use crate::util::actor::multi_call_iter;
 
@@ -72,6 +73,24 @@ pub struct GameState {
     transaction_records: TransactionRecords,
 }
 
+pub async fn load_map(
+    setup: &GameSetup,
+    loop_store: &mut EventLoopStorage,
+    map_name: String,
+) -> anyhow::Result<()> {
+    setup.game.send_message(LoadMap(map_name))?;
+    loop_store.map_info = Some(
+        setup
+            .game
+            .call(GetMapInfoAndName, None)
+            .await
+            .unwrap()
+            .unwrap(),
+    );
+
+    Ok(())
+}
+
 /// Represents a message the game receives
 #[derive(Debug)]
 pub enum GameMsg {
@@ -90,23 +109,18 @@ pub enum GameMsg {
     },
     MoveTiles(Vec<TileCoord>, TileCoord, bool),
     Undo,
+
     /// load a map
-    LoadMap(Arc<ResourceManager>, String),
-    /// take the map
-    TakeMap(RpcReplyPort<Map>),
-    SaveMap(Arc<ResourceManager>, RpcReplyPort<()>),
-    GetMapInfo(RpcReplyPort<(MapInfo, String)>),
+    LoadMap(String),
+    /// save the map
+    SaveMap(RpcReplyPort<()>),
+
+    GetMapInfoAndName(RpcReplyPort<(Arc<Mutex<MapInfo>>, String)>),
 
     /// get the tile at the given position
     GetTile(TileCoord, RpcReplyPort<Option<Id>>),
     /// get the tile entity at the given position
     GetTileEntity(TileCoord, RpcReplyPort<Option<ActorRef<TileEntityMsg>>>),
-
-    TakeDataMap(RpcReplyPort<DataMap>),
-    SetDataMap(DataMap),
-    GetDataValue(Id, RpcReplyPort<Option<Data>>),
-    SetDataValue(Id, Data),
-    RemoveData(Id),
 
     /// get rendering information
     RenderInfoRequest {
@@ -150,21 +164,13 @@ impl Actor for Game {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            TakeMap(reply) => {
-                let map_name = state.map.map_name.clone();
-
-                reply
-                    .send(mem::replace(&mut state.map, Map::new_empty(map_name)))
-                    .unwrap();
-
-                return Ok(());
-            }
-            LoadMap(resource_man, name) => {
+            LoadMap(name) => {
                 for tile_entity in state.tile_entities.values() {
                     tile_entity.stop(Some("Loading new map".to_string()));
                 }
 
-                let (map, tile_entities) = Map::load(myself.clone(), resource_man, &name).await;
+                let (map, tile_entities) =
+                    Map::load(myself.clone(), self.resource_man.clone(), &name).await;
 
                 state.map = map;
                 state.tile_entities = tile_entities;
@@ -174,40 +180,18 @@ impl Actor for Game {
                 log::info!("Successfully loaded map {name}!");
                 return Ok(());
             }
-            SaveMap(resource_man, reply) => {
+            SaveMap(reply) => {
                 state
                     .map
-                    .save(&resource_man.interner, &state.tile_entities)
+                    .save(&self.resource_man.interner, &state.tile_entities)
                     .await;
                 log::info!("Saved map {}", state.map.map_name.clone());
                 reply.send(()).unwrap();
             }
-            GetMapInfo(reply) => {
-                let tile_count = state.map.tiles.len() as u64;
-                let save_time = state.map.save_time;
-
+            GetMapInfoAndName(reply) => {
                 reply
-                    .send((
-                        MapInfo {
-                            tile_count,
-                            save_time,
-                        },
-                        state.map.map_name.clone(),
-                    ))
+                    .send((state.map.info.clone(), state.map.map_name.clone()))
                     .unwrap();
-
-                return Ok(());
-            }
-            TakeDataMap(reply) => {
-                reply.send(mem::take(&mut state.map.data)).unwrap();
-
-                return Ok(());
-            }
-            SetDataMap(data) => {
-                state.map.data = data;
-            }
-            GetDataValue(key, reply) => {
-                reply.send(state.map.data.get(&key).cloned()).unwrap();
 
                 return Ok(());
             }
@@ -219,12 +203,6 @@ impl Actor for Game {
                 match rest {
                     Tick => {
                         tick(state);
-                    }
-                    SetDataValue(key, value) => {
-                        state.map.data.insert(key, value);
-                    }
-                    RemoveData(key) => {
-                        state.map.data.remove(&key);
                     }
                     RenderInfoRequest {
                         culling_range,
@@ -292,18 +270,21 @@ impl Actor for Game {
 
                         let mut skip = false;
 
-                        try_category(&self.resource_man, id, |item| {
-                            if let Data::Inventory(inventory) = state
-                                .map
-                                .data
-                                .entry(self.resource_man.registry.data_ids.player_inventory)
-                                .or_insert_with(|| Data::Inventory(Default::default()))
-                            {
-                                if inventory.get(item) < 1 {
-                                    skip = true
+                        {
+                            let lock = &mut state.map.info.lock().await;
+
+                            try_category(&self.resource_man, id, |item| {
+                                if let Data::Inventory(inventory) = lock
+                                    .data
+                                    .entry(self.resource_man.registry.data_ids.player_inventory)
+                                    .or_insert_with(|| Data::Inventory(Default::default()))
+                                {
+                                    if inventory.get(item) < 1 {
+                                        skip = true
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
 
                         if skip {
                             if let Some(reply) = reply {
@@ -560,16 +541,19 @@ async fn remove_tile(
         .remove(&coord)
         .zip(state.tile_entities.remove(&coord))
     {
-        try_category(resource_man, tile, |item| {
-            if let Data::Inventory(inventory) = state
-                .map
-                .data
-                .entry(resource_man.registry.data_ids.player_inventory)
-                .or_insert_with(|| Data::Inventory(Default::default()))
-            {
-                inventory.add(item, 1);
-            }
-        });
+        {
+            let lock = &mut state.map.info.lock().await;
+
+            try_category(resource_man, tile, |item| {
+                if let Data::Inventory(inventory) = lock
+                    .data
+                    .entry(resource_man.registry.data_ids.player_inventory)
+                    .or_insert_with(|| Data::Inventory(Default::default()))
+                {
+                    inventory.add(item, 1);
+                }
+            });
+        }
 
         let data = tile_entity
             .call(TileEntityMsg::TakeData, None)
@@ -598,20 +582,23 @@ async fn insert_new_tile(
 
     let mut skip = false;
 
-    try_category(&resource_man, tile, |item| {
-        if let Data::Inventory(inventory) = state
-            .map
-            .data
-            .entry(resource_man.registry.data_ids.player_inventory)
-            .or_insert_with(|| Data::Inventory(Default::default()))
-        {
-            if inventory.get(item) < 1 {
-                skip = true;
-            }
+    {
+        let lock = &mut state.map.info.lock().await;
 
-            inventory.take(item, 1);
-        }
-    });
+        try_category(&resource_man, tile, |item| {
+            if let Data::Inventory(inventory) = lock
+                .data
+                .entry(resource_man.registry.data_ids.player_inventory)
+                .or_insert_with(|| Data::Inventory(Default::default()))
+            {
+                if inventory.get(item) < 1 {
+                    skip = true;
+                }
+
+                inventory.take(item, 1);
+            }
+        });
+    }
 
     if skip {
         return None;

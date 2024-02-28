@@ -15,7 +15,7 @@ use automancy_defs::log;
 use automancy_resources::{format, format_time};
 
 use crate::event::{shutdown_graceful, EventLoopStorage};
-use crate::game::GameMsg;
+use crate::game::{load_map, GameMsg};
 use crate::gui::{default_frame, OptionsMenuState, PopupState, Screen, SubState, TextField};
 use crate::map::{Map, MAIN_MENU};
 use crate::options::AAType;
@@ -199,20 +199,14 @@ pub fn pause_menu(
                         .clicked()
                     {
                         runtime
-                            .block_on(setup.game.call(
-                                |reply| GameMsg::SaveMap(setup.resource_man.clone(), reply),
-                                None,
-                            ))
+                            .block_on(setup.game.call(GameMsg::SaveMap, None))
                             .unwrap()
                             .unwrap();
 
-                        setup
-                            .game
-                            .send_message(GameMsg::LoadMap(
-                                setup.resource_man.clone(),
-                                MAIN_MENU.to_string(),
-                            ))
+                        runtime
+                            .block_on(load_map(setup, loop_store, MAIN_MENU.to_string()))
                             .unwrap();
+
                         loop_store.gui_state.switch_screen(Screen::MainMenu)
                     };
                     ui.label(VERSION)
@@ -222,7 +216,12 @@ pub fn pause_menu(
 }
 
 /// Draws the map loading menu.
-pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut EventLoopStorage) {
+pub fn map_menu(
+    runtime: &Runtime,
+    setup: &mut GameSetup,
+    context: &Context,
+    loop_store: &mut EventLoopStorage,
+) {
     Window::new(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.load_map].as_str(),
     )
@@ -235,7 +234,7 @@ pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut Event
         ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
             let mut dirty = false;
 
-            for (map_info, map_name) in &setup.maps {
+            for ((_, save_time), map_name) in &setup.maps {
                 ui.group(|ui| {
                     ui.scope(|ui| {
                         ui.style_mut().override_text_style = Some(TextStyle::Heading);
@@ -288,9 +287,9 @@ pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut Event
                     });
 
                     ui.horizontal(|ui| {
-                        if let Some(save_time) = map_info.save_time {
+                        if let Some(save_time) = save_time {
                             ui.label(format_time(
-                                save_time,
+                                *save_time,
                                 setup.resource_man.translates.gui
                                     [&setup.resource_man.registry.gui_ids.time_fmt]
                                     .as_str(),
@@ -305,13 +304,10 @@ pub fn map_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut Event
                             )
                             .clicked()
                         {
-                            setup
-                                .game
-                                .send_message(GameMsg::LoadMap(
-                                    setup.resource_man.clone(),
-                                    map_name.clone(),
-                                ))
+                            runtime
+                                .block_on(load_map(setup, loop_store, map_name.clone()))
                                 .unwrap();
+
                             loop_store.gui_state.switch_screen(Screen::Ingame);
                         }
 

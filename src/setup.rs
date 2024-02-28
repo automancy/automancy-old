@@ -1,6 +1,6 @@
 use std::fs;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 use ractor::concurrency::JoinHandle;
 use ractor::{Actor, ActorRef};
@@ -14,7 +14,7 @@ use automancy_resources::{ResourceManager, RESOURCES_PATH, RESOURCE_MAN};
 use crate::camera::Camera;
 use crate::game::{Game, GameMsg, TICK_INTERVAL};
 use crate::input::InputHandler;
-use crate::map::{Map, MapInfo, MAIN_MENU, MAP_PATH};
+use crate::map::{Map, MapInfoRaw, MAP_PATH};
 use crate::options::Options;
 
 /// Initialize the Resource Manager system, and loads all the resources in all namespaces.
@@ -82,7 +82,7 @@ pub struct GameSetup {
     /// the camera
     pub camera: Camera,
     /// the list of available maps
-    pub maps: Vec<(MapInfo, String)>,
+    pub maps: Vec<((MapInfoRaw, Option<SystemTime>), String)>,
     /// the state of the input peripherals.
     pub input_handler: InputHandler,
     /// the game options
@@ -121,11 +121,6 @@ impl GameSetup {
         )
         .await?;
 
-        game.send_message(GameMsg::LoadMap(
-            resource_man.clone(),
-            MAIN_MENU.to_string(),
-        ))?;
-
         game.send_interval(TICK_INTERVAL, || GameMsg::Tick);
 
         log::info!("Game created.");
@@ -153,6 +148,7 @@ impl GameSetup {
             indices,
         ))
     }
+
     /// Refreshes the list of maps on the filesystem. Should be done every time the list of maps could have changed (on map creation/delete and on game load).
     pub fn refresh_maps(&mut self) {
         drop(fs::create_dir_all(MAP_PATH));
@@ -162,18 +158,15 @@ impl GameSetup {
             .flatten()
             .map(|f| f.file_name().to_str().unwrap().to_string())
             .filter(|f| !f.starts_with('.'))
-            .flat_map(|map| {
-                Map::read_header(&self.resource_man, &map)
-                    .map(|v| MapInfo {
-                        tile_count: v.0.tile_count,
-                        save_time: v.1,
-                    })
-                    .zip(Some(map))
-            })
+            .flat_map(|map| Map::read_info(&self.resource_man, &map).zip(Some(map)))
             .collect::<Vec<_>>();
 
         self.maps.sort_by(|a, b| a.1.cmp(&b.1));
-        self.maps.sort_by(|a, b| a.0.save_time.cmp(&b.0.save_time));
+        self.maps.sort_by(|a, b| {
+            a.0 .1
+                .unwrap_or(SystemTime::UNIX_EPOCH)
+                .cmp(&b.0 .1.unwrap_or(SystemTime::UNIX_EPOCH))
+        });
         self.maps.reverse();
     }
 }
