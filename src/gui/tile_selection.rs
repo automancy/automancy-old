@@ -1,10 +1,8 @@
 use std::f64::consts::FRAC_PI_4;
 
-use egui::epaint::Shadow;
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    vec2, Context, CursorIcon, Frame, Margin, Response, Rounding, ScrollArea, Sense,
-    TopBottomPanel, Ui,
+    vec2, Context, CursorIcon, Frame, Margin, Response, ScrollArea, Sense, TopBottomPanel, Ui,
 };
 use tokio::sync::oneshot;
 
