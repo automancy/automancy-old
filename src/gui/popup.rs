@@ -8,7 +8,7 @@ use automancy_defs::log;
 
 use crate::event::EventLoopStorage;
 use crate::game::load_map;
-use crate::gui::{default_frame, PopupState, Screen, TextField};
+use crate::gui::{PopupState, Screen, TextField};
 use crate::map::Map;
 use crate::setup::GameSetup;
 
@@ -21,7 +21,6 @@ pub fn invalid_name_popup(setup: &GameSetup, gui: &mut Gui, loop_store: &mut Eve
     .collapsible(false)
     .default_width(250.0)
     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-    .frame(default_frame())
     .show(&gui.context, |ui| {
         ui.label(
             setup.resource_man.translates.gui
@@ -55,7 +54,6 @@ pub fn map_delete_popup(
     .collapsible(false)
     .default_width(250.0)
     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-    .frame(default_frame())
     .show(&gui.context, |ui| {
         ui.label(
             setup.resource_man.translates.gui
@@ -104,7 +102,6 @@ pub fn map_create_popup(
     .collapsible(false)
     .default_width(250.0)
     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-    .frame(default_frame())
     .show(&gui.context, |ui| {
         ui.horizontal(|ui| {
             ui.label("Name:"); //TODO add this to translation

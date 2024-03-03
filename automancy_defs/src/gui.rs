@@ -1,9 +1,10 @@
+use egui::epaint::Shadow;
 use egui::output::OpenUrl;
-use egui::style::{WidgetVisuals, Widgets};
+use egui::style::{Interaction, Spacing, WidgetVisuals, Widgets};
 use egui::FontFamily::{Monospace, Proportional};
 use egui::{
-    Color32, Context, FontDefinitions, FontId, Response, Rounding, Stroke, Style, TextStyle, Ui,
-    Visuals, Widget,
+    Color32, Context, FontDefinitions, FontId, Margin, Response, Rounding, Stroke, Style,
+    TextStyle, Ui, Visuals, Widget,
 };
 use egui_winit::State;
 use flexstr::SharedStr;
@@ -31,9 +32,9 @@ pub fn set_font(font: SharedStr, gui: &mut Gui) {
 }
 
 /// Initialize the GUI style.
-fn init_styles(gui: &Gui) {
+fn init_styles(context: &Context) {
     let light = Visuals::light();
-    gui.context.set_style(Style {
+    context.set_style(Style {
         text_styles: [
             (TextStyle::Small, FontId::new(9.0, Proportional)),
             (TextStyle::Body, FontId::new(13.0, Proportional)),
@@ -43,57 +44,92 @@ fn init_styles(gui: &Gui) {
         ]
         .into(),
         visuals: Visuals {
+            window_fill: Color32::from_white_alpha(190),
+            panel_fill: Color32::from_white_alpha(190),
+
+            window_rounding: Rounding::same(8.0),
+            menu_rounding: Rounding::same(0.0),
+
+            window_shadow: Shadow {
+                extrusion: 8.0,
+                color: Color32::from_black_alpha(64),
+            },
+            popup_shadow: Shadow {
+                extrusion: 4.0,
+                color: Color32::from_black_alpha(64),
+            },
+
+            window_stroke: Stroke::NONE,
+
             widgets: Widgets {
                 noninteractive: WidgetVisuals {
                     weak_bg_fill: Color32::from_gray(248),
                     bg_fill: Color32::from_gray(170),
-                    bg_stroke: Stroke::new(1.0, Color32::from_gray(160)), // separators, indentation lines
-                    fg_stroke: Stroke::new(1.0, Color32::from_gray(80)),  // normal text color
-                    rounding: Rounding::ZERO,
+                    bg_stroke: Stroke::new(1.0, Color32::from_gray(180)), // separators, indentation lines
+                    fg_stroke: Stroke::new(1.5, Color32::from_gray(40)),  // normal text color
+                    rounding: Rounding::same(1.5),
                     expansion: 0.0,
                 },
                 inactive: WidgetVisuals {
-                    weak_bg_fill: Color32::from_gray(200), // button background
-                    bg_fill: Color32::from_gray(200),      // checkbox background
-                    bg_stroke: Default::default(),
-                    fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
-                    rounding: Rounding::ZERO,
+                    weak_bg_fill: Color32::from_gray(210), // button background
+                    bg_fill: Color32::from_gray(210),      // checkbox background
+                    bg_stroke: Stroke::new(1.0, Color32::from_gray(180)),
+                    fg_stroke: Stroke::new(1.5, Color32::from_gray(40)), // button text
+                    rounding: Rounding::same(3.0),
                     expansion: 0.0,
                 },
                 hovered: WidgetVisuals {
                     weak_bg_fill: Color32::from_gray(220),
-                    bg_fill: Color32::from_gray(190),
-                    bg_stroke: Stroke::new(1.0, Color32::from_gray(105)), // e.g. hover over window edge or button
+                    bg_fill: Color32::from_gray(220),
+                    bg_stroke: Stroke::new(2.0, Color32::from_gray(180)), // e.g. hover over window edge or button
                     fg_stroke: Stroke::new(1.5, Color32::BLACK),
-                    rounding: Rounding::ZERO,
-                    expansion: 1.0,
+                    rounding: Rounding::same(3.0),
+                    expansion: 0.0,
                 },
                 active: WidgetVisuals {
-                    weak_bg_fill: Color32::from_gray(165),
-                    bg_fill: Color32::from_gray(180),
-                    bg_stroke: Stroke::new(1.0, Color32::BLACK),
-                    fg_stroke: Stroke::new(2.0, Color32::BLACK),
-                    rounding: Rounding::ZERO,
-                    expansion: 1.0,
+                    weak_bg_fill: Color32::from_gray(170),
+                    bg_fill: Color32::from_gray(190),
+                    bg_stroke: Stroke::new(2.0, Color32::BLACK),
+                    fg_stroke: Stroke::new(1.5, Color32::BLACK),
+                    rounding: Rounding::same(3.0),
+                    expansion: 0.0,
                 },
                 open: WidgetVisuals {
                     weak_bg_fill: Color32::from_gray(220),
                     bg_fill: Color32::from_gray(210),
-                    bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
-                    fg_stroke: Stroke::new(1.0, Color32::BLACK),
-                    rounding: Rounding::ZERO,
+                    bg_stroke: Stroke::new(2.0, Color32::from_gray(160)),
+                    fg_stroke: Stroke::new(1.5, Color32::BLACK),
+                    rounding: Rounding::same(3.0),
                     expansion: 0.0,
                 },
             },
+            slider_trailing_fill: true,
             ..light
+        },
+        spacing: Spacing {
+            window_margin: Margin::same(10.0),
+            ..Default::default()
+        },
+        interaction: Interaction {
+            show_tooltips_only_when_still: false,
+            tooltip_delay: 0.0,
+            ..Default::default()
         },
         ..Default::default()
     });
 }
 
 /// Initializes the GUI.
-pub fn init_gui(context: Context, renderer: egui_wgpu::Renderer, window: &Window) -> Gui {
+pub fn init_gui(renderer: egui_wgpu::Renderer, window: &Window) -> Gui {
+    let context = Context::default();
     egui_extras::install_image_loaders(&context);
+
+    context.tessellation_options_mut(|o| {
+        o.coarse_tessellation_culling = false;
+        o.feathering = false;
+    });
+    init_styles(&context);
+
     let viewport_id = context.viewport_id();
 
     let gui = Gui {
@@ -108,7 +144,6 @@ pub fn init_gui(context: Context, renderer: egui_wgpu::Renderer, window: &Window
         renderer,
         fonts: FontDefinitions::default(),
     };
-    init_styles(&gui);
 
     gui
 }

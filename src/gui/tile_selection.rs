@@ -3,7 +3,8 @@ use std::f64::consts::FRAC_PI_4;
 use egui::epaint::Shadow;
 use egui::scroll_area::ScrollBarVisibility;
 use egui::{
-    vec2, Context, CursorIcon, Margin, Response, Rounding, ScrollArea, Sense, TopBottomPanel, Ui,
+    vec2, Context, CursorIcon, Frame, Margin, Response, Rounding, ScrollArea, Sense,
+    TopBottomPanel, Ui,
 };
 use tokio::sync::oneshot;
 
@@ -16,7 +17,7 @@ use automancy_resources::data::{Data, DataMap};
 use automancy_resources::format;
 
 use crate::event::EventLoopStorage;
-use crate::gui::{default_frame, GameEguiCallback, LARGE_ICON_SIZE, MEDIUM_ICON_SIZE};
+use crate::gui::{GameEguiCallback, LARGE_ICON_SIZE, MEDIUM_ICON_SIZE};
 use crate::setup::GameSetup;
 
 fn tile_hover_z_angle(ui: &Ui, response: &Response) -> Float {
@@ -171,12 +172,7 @@ pub fn tile_selections(
     TopBottomPanel::bottom("tile_selections")
         .show_separator_line(false)
         .resizable(false)
-        .frame(default_frame().shadow(Shadow::NONE).outer_margin(Margin {
-            left: 10.0,
-            right: 10.0,
-            top: 0.0,
-            bottom: 10.0,
-        }))
+        .frame(Frame::window(&context.style()).outer_margin(Margin::same(10.0)))
         .show(context, |ui| {
             ScrollArea::horizontal()
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
@@ -198,17 +194,7 @@ pub fn tile_selections(
     TopBottomPanel::bottom("category_selections")
         .show_separator_line(false)
         .resizable(false)
-        .frame(
-            default_frame()
-                .shadow(Shadow::NONE)
-                .rounding(Rounding {
-                    nw: 10.0,
-                    ne: 10.0,
-                    sw: 0.0,
-                    se: 0.0,
-                })
-                .outer_margin(Margin::symmetric(40.0, 0.0)),
-        )
+        .frame(Frame::window(&context.style()).outer_margin(Margin::symmetric(40.0, 0.0)))
         .show(context, |ui| {
             ScrollArea::horizontal()
                 .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)

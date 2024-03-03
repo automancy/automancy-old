@@ -1,10 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use egui::epaint::Shadow;
-use egui::{
-    Frame, Margin, PaintCallbackInfo, Rect, Rounding, ScrollArea, TextEdit, Ui, Widget, WidgetText,
-};
+use egui::{CursorIcon, PaintCallbackInfo, Rect, ScrollArea, TextEdit, Ui, Widget, WidgetText};
 use egui_wgpu::{CallbackResources, CallbackTrait, ScreenDescriptor};
 use enum_map::{enum_map, Enum, EnumMap};
 use fuse_rust::Fuse;
@@ -13,11 +10,11 @@ use lazy_static::lazy_static;
 use wgpu::util::DrawIndexedIndirectArgs;
 use wgpu::{CommandBuffer, CommandEncoder, Device, IndexFormat, Queue, RenderPass};
 
+use automancy_defs::bytemuck;
 use automancy_defs::glam::vec3;
 use automancy_defs::id::Id;
 use automancy_defs::math::{Float, Matrix4};
 use automancy_defs::rendering::InstanceData;
-use automancy_defs::{bytemuck, colors};
 use automancy_resources::ResourceManager;
 
 use crate::gpu;
@@ -80,18 +77,6 @@ pub enum PopupState {
     MapCreate,
     MapDeleteConfirmation(String),
     InvalidName,
-}
-
-/// Creates a default frame.
-pub fn default_frame() -> Frame {
-    Frame::none()
-        .fill(colors::WHITE.multiply(0.65).into())
-        .shadow(Shadow {
-            extrusion: 8.0,
-            color: colors::DARK_GRAY.multiply(0.5).into(),
-        })
-        .rounding(Rounding::same(5.0))
-        .inner_margin(Margin::same(10.0))
 }
 
 impl Default for GuiState {
@@ -232,9 +217,11 @@ impl TextFieldState {
 }
 
 pub fn info_hover(ui: &mut Ui, info: impl Into<WidgetText>) {
-    ui.label("ⓘ").on_hover_ui(|ui| {
-        ui.label(info);
-    });
+    ui.label("ⓘ")
+        .on_hover_cursor(CursorIcon::Help)
+        .on_hover_ui(|ui| {
+            ui.label(info);
+        });
 }
 
 lazy_static! {

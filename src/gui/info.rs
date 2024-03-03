@@ -7,7 +7,7 @@ use automancy_resources::data::Data;
 
 use crate::event::EventLoopStorage;
 use crate::gui::item::draw_item;
-use crate::gui::{default_frame, SMALL_ICON_SIZE};
+use crate::gui::SMALL_ICON_SIZE;
 use crate::setup::GameSetup;
 use crate::tile_entity::TileEntityMsg;
 
@@ -24,7 +24,6 @@ pub fn info(
     .anchor(Align2::RIGHT_TOP, vec2(-10.0, 10.0))
     .resizable(false)
     .default_width(300.0)
-    .frame(default_frame())
     .show(context, |ui| {
         ui.colored_label(colors::DARK_GRAY, setup.camera.pointing_at.to_string());
 

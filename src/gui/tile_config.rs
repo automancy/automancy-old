@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use egui::Context;
 use egui::{vec2, DragValue, Margin, Ui, Window};
+use egui::{Context, Frame};
 use ractor::ActorRef;
 use tokio::runtime::Runtime;
 
@@ -15,7 +15,6 @@ use automancy_resources::types::tile::TileDef;
 use automancy_resources::ResourceManager;
 
 use crate::event::EventLoopStorage;
-use crate::gui;
 use crate::gui::item::draw_item;
 use crate::gui::{info_hover, TextField, MEDIUM_ICON_SIZE, SMALL_ICON_SIZE};
 use crate::setup::GameSetup;
@@ -438,7 +437,7 @@ pub fn tile_config(
     .resizable(false)
     .auto_sized()
     .constrain(true)
-    .frame(gui::default_frame().inner_margin(Margin::same(10.0)))
+    .frame(Frame::window(&context.style()).inner_margin(Margin::same(10.0)))
     .show(context, |ui| {
         const MARGIN: Float = 10.0;
 

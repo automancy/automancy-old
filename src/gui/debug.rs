@@ -5,7 +5,6 @@ use ron::ser::PrettyConfig;
 use tokio::runtime::Runtime;
 
 use crate::event::EventLoopStorage;
-use crate::gui::default_frame;
 use crate::renderer::Renderer;
 use crate::setup::GameSetup;
 
@@ -40,7 +39,6 @@ pub fn debugger(
     )
     .resizable(false)
     .default_width(600.0)
-    .frame(default_frame())
     .show(context, |ui| {
         ui.label(format!("FPS: {fps:.1}"));
         ui.label(format!("WGPU: {}", ron::ser::to_string_pretty(&renderer.gpu.adapter_info, PrettyConfig::default()).unwrap_or("could not format wgpu info".to_string())));

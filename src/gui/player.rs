@@ -13,7 +13,7 @@ use automancy_resources::data::{Data, DataMap};
 use crate::event::EventLoopStorage;
 use crate::game::TAKE_ITEM_ANIMATION_SPEED;
 use crate::gui::item::draw_item;
-use crate::gui::{default_frame, GameEguiCallback, Screen, MEDIUM_ICON_SIZE};
+use crate::gui::{GameEguiCallback, Screen, MEDIUM_ICON_SIZE};
 use crate::setup::GameSetup;
 
 fn take_item_animation(
@@ -81,7 +81,6 @@ pub fn player(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.player_menu]
             .as_str(),
     )
-    .frame(default_frame())
     .resizable(false)
     .collapsible(false)
     .show(context, |ui| {

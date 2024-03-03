@@ -135,9 +135,6 @@ fn main() -> eyre::Result<()> {
     // --- window ---
     let event_loop = EventLoop::new()?;
 
-    let egui_context: egui::Context = Default::default();
-    egui_extras::install_image_loaders(&egui_context);
-
     let icon = get_icon();
 
     let window = WindowBuilder::new()
@@ -182,7 +179,7 @@ fn main() -> eyre::Result<()> {
     egui_callback_resources.insert(gui_resources);
     egui_callback_resources.insert(global_buffers.clone());
 
-    let mut gui = init_gui(egui_context, egui_renderer, gpu.window);
+    let mut gui = init_gui(egui_renderer, gpu.window);
     gui.fonts = FontDefinitions::default();
     for (name, font) in setup.resource_man.fonts.iter() {
         gui.fonts

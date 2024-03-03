@@ -16,7 +16,7 @@ use automancy_resources::{format, format_time};
 
 use crate::event::{shutdown_graceful, EventLoopStorage};
 use crate::game::{load_map, GameMsg};
-use crate::gui::{default_frame, OptionsMenuState, PopupState, Screen, SubState, TextField};
+use crate::gui::{OptionsMenuState, PopupState, Screen, SubState, TextField};
 use crate::map::{Map, MAIN_MENU};
 use crate::options::AAType;
 use crate::setup::GameSetup;
@@ -37,7 +37,6 @@ pub fn main_menu(
         .title_bar(false)
         .max_width(200.0)
         .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-        .frame(default_frame())
         .show(context, |ui| {
             ui.with_layout(
                 ui.layout()
@@ -145,7 +144,6 @@ pub fn pause_menu(
         .collapsible(false)
         .default_width(175.0)
         .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-        .frame(default_frame())
         .show(context, |ui| {
             ui.with_layout(
                 ui.layout()
@@ -229,7 +227,6 @@ pub fn map_menu(
     .collapsible(false)
     .default_width(600.0)
     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-    .frame(default_frame())
     .show(context, |ui| {
         ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
             let mut dirty = false;
@@ -377,7 +374,6 @@ pub fn options_menu(setup: &mut GameSetup, context: &Context, loop_store: &mut E
     .collapsible(false)
     .default_width(175.0)
     .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-    .frame(default_frame())
     .show(context, |ui| {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
