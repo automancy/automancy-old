@@ -32,9 +32,8 @@ pub fn set_font(font: SharedStr, gui: &mut Gui) {
 
 /// Initialize the GUI style.
 fn init_styles(gui: &Gui) {
+    let light = Visuals::light();
     gui.context.set_style(Style {
-        override_text_style: None,
-        override_font_id: None,
         text_styles: [
             (TextStyle::Small, FontId::new(9.0, Proportional)),
             (TextStyle::Body, FontId::new(13.0, Proportional)),
@@ -43,7 +42,6 @@ fn init_styles(gui: &Gui) {
             (TextStyle::Monospace, FontId::new(13.0, Monospace)),
         ]
         .into(),
-        wrap: None,
         visuals: Visuals {
             widgets: Widgets {
                 noninteractive: WidgetVisuals {
@@ -51,7 +49,7 @@ fn init_styles(gui: &Gui) {
                     bg_fill: Color32::from_gray(170),
                     bg_stroke: Stroke::new(1.0, Color32::from_gray(160)), // separators, indentation lines
                     fg_stroke: Stroke::new(1.0, Color32::from_gray(80)),  // normal text color
-                    rounding: Rounding::same(2.0),
+                    rounding: Rounding::ZERO,
                     expansion: 0.0,
                 },
                 inactive: WidgetVisuals {
@@ -59,7 +57,7 @@ fn init_styles(gui: &Gui) {
                     bg_fill: Color32::from_gray(200),      // checkbox background
                     bg_stroke: Default::default(),
                     fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
-                    rounding: Rounding::same(2.0),
+                    rounding: Rounding::ZERO,
                     expansion: 0.0,
                 },
                 hovered: WidgetVisuals {
@@ -67,7 +65,7 @@ fn init_styles(gui: &Gui) {
                     bg_fill: Color32::from_gray(190),
                     bg_stroke: Stroke::new(1.0, Color32::from_gray(105)), // e.g. hover over window edge or button
                     fg_stroke: Stroke::new(1.5, Color32::BLACK),
-                    rounding: Rounding::same(3.0),
+                    rounding: Rounding::ZERO,
                     expansion: 1.0,
                 },
                 active: WidgetVisuals {
@@ -75,7 +73,7 @@ fn init_styles(gui: &Gui) {
                     bg_fill: Color32::from_gray(180),
                     bg_stroke: Stroke::new(1.0, Color32::BLACK),
                     fg_stroke: Stroke::new(2.0, Color32::BLACK),
-                    rounding: Rounding::same(2.0),
+                    rounding: Rounding::ZERO,
                     expansion: 1.0,
                 },
                 open: WidgetVisuals {
@@ -83,11 +81,11 @@ fn init_styles(gui: &Gui) {
                     bg_fill: Color32::from_gray(210),
                     bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
                     fg_stroke: Stroke::new(1.0, Color32::BLACK),
-                    rounding: Rounding::same(2.0),
+                    rounding: Rounding::ZERO,
                     expansion: 0.0,
                 },
             },
-            ..Visuals::light()
+            ..light
         },
         ..Default::default()
     });
