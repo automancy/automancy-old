@@ -79,8 +79,8 @@ impl Camera {
     }
 
     /// Updates the movement state of the camera based on control input.
-    pub fn handle_input(&mut self, input: &InputHandler, ignore_move: bool) {
-        if !ignore_move && input.tertiary_held {
+    pub fn handle_input(&mut self, input: &InputHandler) {
+        if input.tertiary_held {
             if let Some(delta) = input.main_move {
                 self.on_moving_main(delta);
             }
@@ -95,7 +95,7 @@ impl Camera {
     pub fn update_pos(&mut self, (width, height): (Double, Double), elapsed: Double) {
         let m = elapsed * 100.0;
 
-        if self.move_vel.length_squared() > 0.000001 {
+        if self.move_vel.length_squared() > 0.0000001 {
             self.pos.x += self.move_vel.x * m;
             self.pos.y += self.move_vel.y * m;
 

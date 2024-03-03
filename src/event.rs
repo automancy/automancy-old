@@ -533,9 +533,7 @@ pub fn on_event(
             1.0, //TODO sensitivity option
         ));
 
-        let ignore_move = false;
-
-        setup.camera.handle_input(&setup.input_handler, ignore_move);
+        setup.camera.handle_input(&setup.input_handler);
 
         if setup.input_handler.key_active(KeyActions::Escape) {
             // one by one
