@@ -29,9 +29,9 @@ fn vs_main(
     return out;
 }
 
-const FXAA_SPAN_MAX: f32 = 4.0;
+const FXAA_SPAN_MAX: f32 = 2.0;
 const FXAA_REDUCE_MIN: f32 = 0.0078125;
-const FXAA_REDUCE_MUL: f32 = 0.25;
+const FXAA_REDUCE_MUL: f32 = 0.125;
 const LUMA = vec3<f32>(0.299, 0.587, 0.114);
 
 @fragment
