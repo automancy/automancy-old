@@ -45,7 +45,7 @@ fn vs_main(
     return out;
 }
 
-const SSAO_INTENSITY: f32 = 2.0;
+const SSAO_INTENSITY: f32 = 3.0;
 const SSAO_SAMPLE_RADIUS: f32 = 3.0;
 
 const SSAO_SAMPLES = array<vec2<f32>, 4>(
