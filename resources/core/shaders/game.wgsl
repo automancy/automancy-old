@@ -62,7 +62,7 @@ fn vs_main(
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
     @location(1) normal: vec4<f32>,
-    @location(2) depth: f32,
+    @location(2) model: vec4<f32>,
 }
 
 const TINT_DIR = vec3<f32>(-0.348155, 0.348155, 0.870388);
@@ -83,7 +83,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput {
 
     out.color = vec4(in.color.rgb * lighting, in.color.a);
     out.normal = vec4(in.normal, 0.0);
-    out.depth = in.model_pos.z;
+    out.model = vec4(in.model_pos, 0.0);
 
     return out;
 }

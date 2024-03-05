@@ -167,6 +167,7 @@ fn main() -> eyre::Result<()> {
     log::info!("Setting up rendering...");
     let (shared_resources, render_resources, global_buffers, gui_resources) = init_gpu_resources(
         &gpu.device,
+        &gpu.queue,
         &gpu.config,
         &setup.resource_man,
         vertices,

@@ -498,7 +498,7 @@ impl<'a> Renderer<'a> {
                         },
                     }),
                     Some(RenderPassColorAttachment {
-                        view: &self.shared_resources.model_depth_texture().1,
+                        view: &self.shared_resources.model_texture().1,
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Clear(Color::TRANSPARENT),
@@ -594,15 +594,15 @@ impl<'a> Renderer<'a> {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: StoreOp::Discard,
+                            store: StoreOp::Store,
                         },
                     }),
                     Some(RenderPassColorAttachment {
-                        view: &self.shared_resources.model_depth_texture().1,
+                        view: &self.shared_resources.model_texture().1,
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: StoreOp::Discard,
+                            store: StoreOp::Store,
                         },
                     }),
                 ],
@@ -610,7 +610,7 @@ impl<'a> Renderer<'a> {
                     view: &self.shared_resources.depth_texture().1,
                     depth_ops: Some(Operations {
                         load: LoadOp::Load,
-                        store: StoreOp::Discard,
+                        store: StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
@@ -663,6 +663,38 @@ impl<'a> Renderer<'a> {
                     in_world_item_draw_count,
                 );
             }
+        }
+
+        {
+            let mut post_processing_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Game Post Processing Render Pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &self
+                        .render_resources
+                        .game_resources
+                        .post_processing_texture()
+                        .1,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK),
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            post_processing_pass
+                .set_pipeline(&self.render_resources.post_processing_resources.pipeline);
+            post_processing_pass.set_bind_group(
+                0,
+                self.render_resources
+                    .game_resources
+                    .post_processing_bind_group(),
+                &[],
+            );
+            post_processing_pass.draw(0..3, 0..1);
         }
 
         {
