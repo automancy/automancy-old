@@ -45,7 +45,7 @@ fn vs_main(
     return out;
 }
 
-const SSAO_INTENSITY: f32 = 3.0;
+const SSAO_INTENSITY: f32 = 1.5;
 const SSAO_SAMPLE_RADIUS: f32 = 3.0;
 
 const SSAO_SAMPLES = array<vec2<f32>, 4>(
@@ -95,7 +95,7 @@ fn ssao(uv: vec2<f32>) -> f32 {
     ao += ssao_one_sample(SSAO_SAMPLES[3], noise, texel_size, uv, model, normal);
     ao /= 4.0;
 
-    return 1.0 - ao;
+    return 1.0 - smoothstep(0.03, 1.0, ao);
 }
 
 @fragment
