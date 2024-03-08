@@ -28,7 +28,7 @@ use automancy_defs::id::Id;
 use automancy_defs::math::{
     direction_to_angle, lerp_coords_to_pixel, Double, Float, Matrix4, FAR, HEX_GRID_LAYOUT, SQRT_3,
 };
-use automancy_defs::rendering::{make_line, GameUBO, InstanceData};
+use automancy_defs::rendering::{make_line, GameUBO, InstanceData, LINE_DEPTH};
 use automancy_defs::slice_group_by::GroupBy;
 use automancy_defs::{bytemuck, colors};
 use automancy_resources::data::Data;
@@ -234,10 +234,11 @@ impl<'a> Renderer<'a> {
                         InstanceData::default()
                             .with_color_offset(color.to_array())
                             .with_world_matrix(world_matrix)
+                            .with_light_pos(camera_pos_float, None)
                             .with_model_matrix(
                                 unit.instance.get_model_matrix()
                                     * Matrix4::from_rotation_z(FRAC_PI_6 * 5.0)
-                                    * Matrix4::from_scale(vec3(0.1, SQRT_3, 0.01))
+                                    * Matrix4::from_scale(vec3(0.1, SQRT_3, LINE_DEPTH))
                                     * Matrix4::from_translation(vec3(0.0, 0.5, 0.0)),
                             ),
                         setup.resource_man.registry.model_ids.cube1x1,

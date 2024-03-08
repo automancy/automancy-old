@@ -337,7 +337,10 @@ fn render(
                         }
 
                         if let Some(dir) = loop_store.placement_direction {
-                            if dir != TileCoord::ZERO {
+                            if dir != TileCoord::ZERO
+                                && loop_store.selected_tile_id
+                                    != Some(setup.resource_man.registry.none)
+                            {
                                 extra_instances.push((
                                     InstanceData::default()
                                         .with_color_offset(colors::RED.to_array())

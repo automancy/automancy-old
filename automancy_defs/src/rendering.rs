@@ -11,6 +11,8 @@ use gltf::scene::Transform;
 
 use crate::math::{direction_to_angle, Float, Matrix3, Matrix4, Vec2, Vec3, Vec4};
 
+pub const LINE_DEPTH: Float = 0.1;
+
 /// Produces a line shape.
 pub fn make_line(a: Vec2, b: Vec2) -> Matrix4 {
     let mid = a.lerp(b, 0.5);
@@ -19,7 +21,7 @@ pub fn make_line(a: Vec2, b: Vec2) -> Matrix4 {
 
     Matrix4::from_translation(vec3(mid.x, mid.y, 0.1))
         * Matrix4::from_rotation_z(theta)
-        * Matrix4::from_scale(vec3(d.at_least(0.001), 0.1, 0.05))
+        * Matrix4::from_scale(vec3(d.at_least(0.001), 0.1, LINE_DEPTH))
 }
 
 // vertex
