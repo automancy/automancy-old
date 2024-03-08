@@ -3,7 +3,7 @@
 use std::f64::consts::PI;
 
 use glam::{dvec2, dvec3, dvec4, vec2};
-use hexx::{Hex, HexBounds, HexLayout, HexOrientation};
+use hexx::{HexBounds, HexLayout, HexOrientation};
 
 use crate::coord::TileCoord;
 
@@ -115,14 +115,14 @@ pub fn screen_to_normalized((width, height): (Double, Double), c: DVec2) -> DVec
 
 /// Gets the hex position being pointed at.
 #[inline]
-pub fn main_pos_to_hex(
+pub fn main_pos_to_fract_hex(
     (width, height): (Double, Double),
     main_pos: DVec2,
     camera_pos: DVec3,
-) -> Hex {
+) -> Vec2 {
     let p = screen_to_world((width, height), main_pos, camera_pos);
 
-    HEX_GRID_LAYOUT.world_pos_to_hex(vec2(p.x as Float, p.y as Float))
+    HEX_GRID_LAYOUT.world_pos_to_fract_hex(vec2(p.x as Float, p.y as Float))
 }
 
 /// Converts screen coordinates to world coordinates.

@@ -1,4 +1,5 @@
 use egui::{vec2, Align2, Context, Window};
+use ractor::rpc::CallResult;
 use tokio::runtime::Runtime;
 
 use automancy_defs::colors;
@@ -33,10 +34,11 @@ pub fn info(
 
         ui.label(setup.resource_man.tile_name(&tile));
 
-        let data = runtime
-            .block_on(entity.call(TileEntityMsg::GetData, None))
-            .unwrap()
-            .unwrap();
+        let Ok(CallResult::Success(data)) =
+            runtime.block_on(entity.call(TileEntityMsg::GetData, None))
+        else {
+            return;
+        };
 
         if let Some(Data::Inventory(inventory)) =
             data.get(&setup.resource_man.registry.data_ids.buffer)

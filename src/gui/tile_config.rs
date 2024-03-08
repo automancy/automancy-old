@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use egui::{vec2, DragValue, Margin, Ui, Window};
 use egui::{Context, Frame};
+use ractor::rpc::CallResult;
 use ractor::ActorRef;
 use tokio::runtime::Runtime;
 
@@ -425,10 +426,10 @@ pub fn tile_config(
         return;
     };
 
-    let data = runtime
-        .block_on(entity.call(TileEntityMsg::GetData, None))
-        .unwrap()
-        .unwrap();
+    let Ok(CallResult::Success(data)) = runtime.block_on(entity.call(TileEntityMsg::GetData, None))
+    else {
+        return;
+    };
 
     Window::new(
         setup.resource_man.translates.gui[&setup.resource_man.registry.gui_ids.tile_config]

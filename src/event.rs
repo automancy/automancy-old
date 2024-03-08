@@ -8,6 +8,7 @@ use egui::{LayerId, Rect};
 use egui_wgpu::wgpu::SurfaceError;
 use fuse_rust::Fuse;
 use hashbrown::{HashMap, HashSet};
+use ractor::rpc::CallResult;
 use ractor::ActorRef;
 use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Mutex};
@@ -18,12 +19,13 @@ use automancy_defs::colors::ColorAdj;
 use automancy_defs::coord::TileCoord;
 use automancy_defs::glam::{dvec2, vec3};
 use automancy_defs::gui::Gui;
+use automancy_defs::hexx::Hex;
 use automancy_defs::id::Id;
 use automancy_defs::math::{Float, Matrix4, FAR, HEX_GRID_LAYOUT};
 use automancy_defs::rendering::{make_line, InstanceData};
 use automancy_defs::{colors, log, math, window};
 use automancy_resources::data::item::Item;
-use automancy_resources::data::Data;
+use automancy_resources::data::{Data, DataMap};
 use automancy_resources::kira::manager::AudioManager;
 use automancy_resources::ResourceManager;
 
@@ -63,6 +65,10 @@ pub struct EventLoopStorage {
     pub grouped_tiles: HashSet<TileCoord>,
     /// the stored initial cursor position, for moving tiles
     pub initial_cursor_position: Option<TileCoord>,
+    /// the current tile placement target direction, only Some when shift is held
+    /// TODO shift is only on keyboard
+    pub placement_direction: Option<TileCoord>,
+    pub prev_placement_direction: Option<TileCoord>,
 
     pub take_item_animations: HashMap<Item, VecDeque<(Instant, Rect)>>,
 
@@ -90,6 +96,8 @@ impl Default for EventLoopStorage {
             elapsed: Default::default(),
             grouped_tiles: Default::default(),
             initial_cursor_position: None,
+            placement_direction: None,
+            prev_placement_direction: None,
             take_item_animations: Default::default(),
 
             map_info: None,
@@ -327,6 +335,25 @@ fn render(
                                 setup.resource_man.registry.model_ids.cube1x1,
                             ));
                         }
+
+                        if let Some(dir) = loop_store.placement_direction {
+                            if dir != TileCoord::ZERO {
+                                extra_instances.push((
+                                    InstanceData::default()
+                                        .with_color_offset(colors::RED.to_array())
+                                        .with_light_pos(camera_pos_float, None)
+                                        .with_world_matrix(setup.camera.get_matrix().as_mat4())
+                                        .with_model_matrix(make_line(
+                                            HEX_GRID_LAYOUT
+                                                .hex_to_world_pos(*setup.camera.pointing_at),
+                                            HEX_GRID_LAYOUT.hex_to_world_pos(
+                                                *(setup.camera.pointing_at + dir),
+                                            ),
+                                        )),
+                                    setup.resource_man.registry.model_ids.cube1x1,
+                                ));
+                            }
+                        }
                     }
                 }
                 Screen::MainMenu => {
@@ -435,14 +462,15 @@ async fn on_link_tile(
         .and_then(Data::into_bool)
         .unwrap_or(false)
     {
-        let old = entity
+        let Ok(CallResult::Success(old)) = entity
             .call(
                 |reply| TileEntityMsg::GetDataValue(resource_man.registry.data_ids.link, reply),
                 None,
             )
             .await
-            .unwrap()
-            .unwrap();
+        else {
+            return;
+        };
 
         if old.is_some() {
             entity
@@ -563,6 +591,24 @@ pub fn on_event(
             || (setup.input_handler.shift_held && setup.input_handler.main_held)
         {
             if let Some(id) = loop_store.selected_tile_id {
+                let mut data = DataMap::default();
+
+                if let Some(mut dir) = loop_store.placement_direction.take() {
+                    if let Some(old) = loop_store.prev_placement_direction.replace(dir) {
+                        if old == -dir {
+                            dir = old;
+                            loop_store.prev_placement_direction.replace(old);
+                        }
+                    }
+
+                    data.insert(
+                        setup.resource_man.registry.data_ids.target,
+                        Data::Coord(dir),
+                    );
+                } else {
+                    loop_store.prev_placement_direction = None;
+                }
+
                 if loop_store.already_placed_at != Some(setup.camera.pointing_at) {
                     let response = runtime
                         .block_on(setup.game.call(
@@ -571,7 +617,7 @@ pub fn on_event(
                                 id,
                                 record: true,
                                 reply: Some(reply),
-                                data: None,
+                                data: Some(data),
                             },
                             None,
                         ))?
@@ -661,6 +707,21 @@ pub fn on_event(
         if setup.input_handler.key_active(KeyActions::Fullscreen) {
             setup.options.graphics.fullscreen = !setup.options.graphics.fullscreen;
             setup.options.synced = false
+        }
+
+        if setup.input_handler.shift_held {
+            let hex = math::main_pos_to_fract_hex(
+                window::window_size_double(renderer.gpu.window),
+                setup.input_handler.main_pos,
+                setup.camera.get_pos(),
+            );
+            let rounded = Hex::round(hex.to_array()).as_vec2();
+            let fract = (hex - rounded) * 2.0;
+
+            loop_store.placement_direction = Some(Hex::round(fract.to_array()).into())
+        } else {
+            loop_store.placement_direction = None;
+            loop_store.prev_placement_direction = None;
         }
     }
 

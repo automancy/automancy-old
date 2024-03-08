@@ -4,7 +4,7 @@ use egui::NumExt;
 
 use automancy_defs::coord::TileCoord;
 use automancy_defs::glam::{dvec2, dvec3, vec2};
-use automancy_defs::hexx::HexBounds;
+use automancy_defs::hexx::{Hex, HexBounds};
 use automancy_defs::math;
 use automancy_defs::math::{matrix, DMatrix4, DVec2, DVec3, Double, Float, HEX_GRID_LAYOUT};
 
@@ -66,7 +66,9 @@ impl Camera {
 impl Camera {
     /// Sets the position the camera is centered on.
     pub fn update_pointing_at(&mut self, main_pos: DVec2, (width, height): (Double, Double)) {
-        let p = math::main_pos_to_hex((width, height), main_pos, self.get_pos());
+        let p = Hex::round(
+            math::main_pos_to_fract_hex((width, height), main_pos, self.get_pos()).to_array(),
+        );
 
         self.pointing_at = p.into();
     }
